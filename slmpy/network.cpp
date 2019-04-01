@@ -22,8 +22,7 @@ void Network::fromPython(
     uint64_t tmp2;
     uint64_t nNodesDone = 0;
     for(uint64_t nodeId=0; nodeId < nNodes; nodeId++) {
-        Node n(nodesIn(nodeId, 0));
-        n.cluster = clustersIn(nNodesDone++, 0);
+        Node n(nodesIn(nodeId, 0), clustersIn(nNodesDone++, 0));
         nodes.push_back(n);
     }
 

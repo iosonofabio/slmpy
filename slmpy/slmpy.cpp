@@ -70,9 +70,8 @@ int smart_local_moving(
     uint64_t n_communities,
     uint64_t n_iterations) {
 
-    //Node n(9);
-    //Network net(n_nodes, n_edges);
-    //net.fromPython(edges, nodes, communities, n_communities);
+    Network net(n_nodes, n_edges);
+    net.fromPython(edges, nodes, communities, n_communities);
 
     return n_iterations;
 };

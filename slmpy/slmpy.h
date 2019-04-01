@@ -14,6 +14,7 @@ class Node {
         uint64_t degree();
 
         Node(uint64_t nId) {nodeId = nId;};
+        Node(uint64_t nId, uint64_t clId) {nodeId = nId; cluster = clId;};
 };
 
 class Cluster {
