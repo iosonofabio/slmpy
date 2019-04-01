@@ -126,3 +126,33 @@ double Network::calcModularity() {
 
     return mod;
 }
+
+
+std::vector<uint64_t> Network::nodesInRadomOrder() {
+    // FIXME: this order is not very random ;-)
+    std::vector<uint64_t> randomOrder(nodes.size());
+    return randomOrder;
+}
+
+
+bool Network::runLocalMovingAlgorithm() {
+    double mod = 0;
+
+    if(nNodes == 1)
+        return false;
+
+    bool update = false;
+
+    // Add randomization ;-)
+    std::vector<uint64_t> nodesInRandomOrder = nodesInRadomOrder();
+
+    uint64_t numberStableNodes = 0;
+    int i = 0;
+    do {
+        // FIXME: add the actual algorithm    
+        numberStableNodes++;
+    
+    } while(numberStableNodes < nNodes);
+
+    return true;
+}

@@ -43,6 +43,7 @@ class Network {
             uint64_t nClusters);
 
         // FIXME: use random generators
+        std::vector<uint64_t> nodesInRadomOrder();
         bool runLocalMovingAlgorithm();
 
         double calcModularity();
