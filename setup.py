@@ -168,8 +168,9 @@ version on https://github.com/mneedham/slm.
       ext_modules=[
          Extension(
              'slmpy._slmpy',
-             ['slmpy/slmpy.cpp'],
+             ['slmpy/network.cpp', 'slmpy/node.cpp', 'slmpy/slmpy.cpp'],
              include_dirs=[
+                 'slmpy',
                  numpy_include_dir,
                  get_pybind_include(),
                  get_pybind_include(user=True)] +

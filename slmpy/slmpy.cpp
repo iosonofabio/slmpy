@@ -3,7 +3,7 @@
 #include <cmath>
 #include <pybind11/pybind11.h>
 #include <pybind11/eigen.h>
-#include "slmpy.h"
+#include <slmpy.h>
 
 namespace py = pybind11;
 
@@ -65,7 +65,15 @@ int smart_local_moving(
     py::EigenDRef<const Eigen::Matrix<uint64_t, -1, -1> > edges,
     py::EigenDRef<const Eigen::Matrix<uint64_t, -1, -1> > nodes,
     py::EigenDRef<Eigen::Matrix<uint64_t, -1, -1> > communities,
+    uint64_t n_nodes,
+    uint64_t n_edges,
+    uint64_t n_communities,
     uint64_t n_iterations) {
+
+    //Node n(9);
+    //Network net(n_nodes, n_edges);
+    //net.fromPython(edges, nodes, communities, n_communities);
+
     return n_iterations;
 };
 

@@ -59,6 +59,9 @@ class ModularityOptimzer:
                 self.edges,
                 self.nodes,
                 self.communities,
+                self.nodes.shape[0],
+                self.edges.shape[0],
+                len(np.unique(self.communities)),
                 self.n_iterations,
                 )
         print(tmp)
