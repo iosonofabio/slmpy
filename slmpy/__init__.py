@@ -50,7 +50,8 @@ class ModularityOptimzer:
         self.nodes = np.unique(self.edges)
 
         # The default is to start with each node in its own community
-        self.communities = self.nodes.copy()
+        # NOTE: the communities are numbered 0 to N-1 by default
+        self.communities = np.arange(len(self.nodes), dtype=np.uint64)
 
     def __call__(self):
         '''Run the smart local moving algorithm'''
@@ -64,4 +65,4 @@ class ModularityOptimzer:
                 len(np.unique(self.communities)),
                 self.n_iterations,
                 )
-        print(tmp)
+        return tmp

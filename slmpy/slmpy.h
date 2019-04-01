@@ -42,6 +42,13 @@ class Network {
             py::EigenDRef<const Eigen::Matrix<uint64_t, -1, -1> > clustersIn,
             uint64_t nClusters);
 
+        // FIXME: use random generators
+        bool runLocalMovingAlgorithm();
+
+        double calcModularity();
+
+        
+
 };
 
 // this is the interface fuction

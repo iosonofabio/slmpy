@@ -46,4 +46,19 @@ def test_call_interface():
              [3, 1],
             ],
             )
-    mo()
+    a = mo()
+    assert(a == -37)
+
+
+def test_call_interface2():
+    from slmpy import ModularityOptimzer
+
+    mo = ModularityOptimzer.load_from_edge_list(
+            [
+             [0, 1],
+             [3, 1],
+            ],
+            )
+    mo.communities[:] = 0
+    a = mo()
+    assert(a == 0)
