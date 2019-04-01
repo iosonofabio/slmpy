@@ -1,8 +1,11 @@
 import numpy as np
+from ._slmpy import smart_local_moving as _smart_local_moving
 
 
 
 class ModularityOptimzer:
+
+    n_iterations = 1
 
     def __init__(self):
         pass
@@ -48,3 +51,14 @@ class ModularityOptimzer:
 
         # The default is to start with each node in its own community
         self.communities = self.nodes.copy()
+
+    def __call__(self):
+        '''Run the smart local moving algorithm'''
+
+        tmp = _smart_local_moving(
+                self.edges,
+                self.nodes,
+                self.communities,
+                self.n_iterations,
+                )
+        print(tmp)
