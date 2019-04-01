@@ -26,3 +26,12 @@ def test_load_edges():
             ],
             )
     assert(np.allclose([[0, 1], [3, 1]], mo.edges))
+
+
+def test_load_karate():
+    from slmpy import ModularityOptimzer
+
+    mo = ModularityOptimzer.load_from_edge_tsv_file(
+            'data/karate_club.tsv',
+            )
+    assert(np.allclose([[0, 1], [0, 2]], mo.edges[:2]))
