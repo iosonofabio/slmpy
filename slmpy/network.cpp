@@ -157,36 +157,56 @@ uint64_t Network::findBestCluster(uint64_t nodeId) {
 }
 
 
-void updateCluster(uint64_t nodeId, uint64_t clusterId) {
+void Network::updateCluster(uint64_t nodeId, uint64_t clusterId) {
+
+    // Update the node list
     uint64_t clusterIdOld;
+    Node newNode(nodeId, clusterId);
     for(std::vector<Node>::iterator n=nodes.begin();
         n != nodes.end();
         n++) {
         if(n->nodeId == nodeId) {
             clusterIdOld = n->cluster;
             n->cluster = clusterId;
+            newNode.neighbors = n->neighbors;
+            break;
         }
     }
 
     // Update the cluster list
+    bool clusterNewFound = false;
+    bool clusterEmptyFound = false;
+    std::vector<Cluster>::iterator clusterEmpty;
     for(std::vector<Cluster>::iterator c=clusters.begin();
         c != clusters.end();
         c++) {
-
         if(c->clusterId == clusterId) {
-            // Calculate twice the number of edges within the community
+            c->nodes.push_back(newNode);
+            clusterNewFound = true;
+        } else if(c->clusterId == clusterIdOld) {
             for(std::vector<Node>::iterator n=c->nodes.begin();
                 n != c->nodes.end();
                 n++) {
-                // TODO: Write this!!
+                if(n->nodeId == nodeId) {
+                    c->nodes.erase(n);
+                    if(c->nodes.size() == 0) {
+                            clusterEmpty = c;
+                            clusterEmptyFound = true;
+                    }
+                    break;
+                }
             }
-        } else if(c->clusterId == clusterIdOld) {
-        
         }
+    }
+    if(clusterEmptyFound)
+        clusters.erase(clusterEmpty);
+    if(!clusterNewFound) {
+        std::vector<Node> nodesNewCluster({newNode});
+        Cluster newCluster(clusterId, nodesNewCluster);
+        clusters.push_back(newCluster);
     }
 
 }
-
 
 bool Network::runLocalMovingAlgorithm(uint32_t randomSeed) {
     double mod = 0;

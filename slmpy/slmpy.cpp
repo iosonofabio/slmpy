@@ -48,10 +48,14 @@ int smart_local_moving(
     uint64_t n_nodes,
     uint64_t n_edges,
     uint64_t n_communities,
+    uint32_t random_seed,
     uint64_t n_iterations) {
 
     Network net(n_nodes, n_edges);
     net.fromPython(edges, nodes, communities, n_communities);
+
+    net.runLocalMovingAlgorithm(random_seed);
+
     return (int) 100 * net.calcModularity();
 
     //return n_iterations;

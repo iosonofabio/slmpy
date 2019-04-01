@@ -12,20 +12,22 @@ class Node {
         uint64_t nodeId;
         std::vector<uint64_t> neighbors;
         uint64_t cluster;
-        uint64_t degree();
 
         Node() {};
         Node(uint64_t nId) {nodeId = nId;};
         Node(uint64_t nId, uint64_t clId) {nodeId = nId; cluster = clId;};
+        Node(uint64_t nId, uint64_t clId, std::vector<uint64_t>neighIds) {nodeId = nId; cluster = clId; neighbors = neighIds;};
+
+        uint64_t degree();
 };
 
 class Cluster {
     public:
         uint64_t clusterId;
         std::vector<Node> nodes;
-        double nEdges;
 
-        Cluster(uint64_t clusterId) {this->clusterId = clusterId;};
+        Cluster(uint64_t clId) {clusterId = clId;};
+        Cluster(uint64_t clId, std::vector<Node> ns) {clusterId = clId; nodes = ns;};
 
 };
 
@@ -50,6 +52,7 @@ class Network {
 
         double calcModularity();
         uint64_t findBestCluster(uint64_t nodeId);
+        void updateCluster(uint64_t nodeId, uint64_t clusterId);
 
 
         
@@ -67,4 +70,5 @@ int smart_local_moving(
     uint64_t n_nodes,
     uint64_t n_edges,
     uint64_t n_communities,
+    uint32_t random_seed,
     uint64_t n_iterations);
