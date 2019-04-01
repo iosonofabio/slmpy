@@ -1,6 +1,7 @@
 //#include <iostream>
 #include <map>
 #include <cmath>
+
 #include <pybind11/pybind11.h>
 #include <pybind11/eigen.h>
 
@@ -13,6 +14,7 @@ class Node {
         uint64_t cluster;
         uint64_t degree();
 
+        Node() {};
         Node(uint64_t nId) {nodeId = nId;};
         Node(uint64_t nId, uint64_t clId) {nodeId = nId; cluster = clId;};
 };
@@ -43,14 +45,18 @@ class Network {
             uint64_t nClusters);
 
         // FIXME: use random generators
-        std::vector<uint64_t> nodesInRadomOrder();
-        bool runLocalMovingAlgorithm();
+        std::vector<uint64_t> nodesInRadomOrder(uint32_t seed);
+        bool runLocalMovingAlgorithm(uint32_t randomSeed);
 
         double calcModularity();
+        uint64_t findBestCluster(uint64_t nodeId);
+
 
         
 
 };
+
+
 
 // this is the interface fuction
 int smart_local_moving(

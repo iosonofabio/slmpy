@@ -1,5 +1,9 @@
 #include <map>
 #include <cmath>
+#include <boost/random/mersenne_twister.hpp>
+#include <boost/random/shuffle_order.hpp>
+#include <boost/random/linear_congruential.hpp>
+
 #include <pybind11/pybind11.h>
 #include <pybind11/eigen.h>
 #include <slmpy.h>
@@ -128,14 +132,63 @@ double Network::calcModularity() {
 }
 
 
-std::vector<uint64_t> Network::nodesInRadomOrder() {
-    // FIXME: this order is not very random ;-)
+//FIXME: this is totally unclear, look it up
+std::vector<uint64_t> Network::nodesInRadomOrder(uint32_t seed) {
+    using RandomSource = boost::mt19937;    
+    RandomSource randomSource(seed);
+
     std::vector<uint64_t> randomOrder(nodes.size());
+    boost::random::shuffle_order_engine<
+    boost::random::linear_congruential_engine<uint32_t, 1366, 150889, 714025>,
+    97> kreutzer1986();
+
+    //kreutzer1986.generate(randomOrder.begin(), randomOrder.end());
+
+
+
+
     return randomOrder;
 }
 
 
-bool Network::runLocalMovingAlgorithm() {
+// TODO: write this
+uint64_t Network::findBestCluster(uint64_t nodeId) {
+    return 4;
+}
+
+
+void updateCluster(uint64_t nodeId, uint64_t clusterId) {
+    uint64_t clusterIdOld;
+    for(std::vector<Node>::iterator n=nodes.begin();
+        n != nodes.end();
+        n++) {
+        if(n->nodeId == nodeId) {
+            clusterIdOld = n->cluster;
+            n->cluster = clusterId;
+        }
+    }
+
+    // Update the cluster list
+    for(std::vector<Cluster>::iterator c=clusters.begin();
+        c != clusters.end();
+        c++) {
+
+        if(c->clusterId == clusterId) {
+            // Calculate twice the number of edges within the community
+            for(std::vector<Node>::iterator n=c->nodes.begin();
+                n != c->nodes.end();
+                n++) {
+                // TODO: Write this!!
+            }
+        } else if(c->clusterId == clusterIdOld) {
+        
+        }
+    }
+
+}
+
+
+bool Network::runLocalMovingAlgorithm(uint32_t randomSeed) {
     double mod = 0;
 
     if(nNodes == 1)
@@ -144,15 +197,41 @@ bool Network::runLocalMovingAlgorithm() {
     bool update = false;
 
     // Add randomization ;-)
-    std::vector<uint64_t> nodesInRandomOrder = nodesInRadomOrder();
+    std::vector<uint64_t> nodesShuffled = nodesInRadomOrder(randomSeed);
 
     uint64_t numberStableNodes = 0;
     int i = 0;
+    uint64_t nodeId;
+    uint64_t bestClusterId;
+    bool isStable;
     do {
-        // FIXME: add the actual algorithm    
-        numberStableNodes++;
+        nodeId = nodesShuffled[i];
+        isStable = false;
+
+        // Find best cluster for the random node, including its own one
+        bestClusterId = findBestCluster(nodeId);
+
+        // If the best cluster was already set, the node is stable
+        for(std::vector<Node>::iterator n=nodes.begin();
+            n != nodes.end();
+            n++) {
+            if(n->nodeId == nodeId) {
+                if(n->cluster == bestClusterId) {
+                    numberStableNodes++;
+                    isStable = true;
+                }
+                break;
+            }
+        }
+        if(!isStable) {
+            updateCluster(nodeId, bestClusterId); 
+            numberStableNodes = 1;
+            update = true;
+        }
+
+        i = (i < nodes.size() - 1) ? (i + 1) : 0;
     
     } while(numberStableNodes < nNodes);
 
-    return true;
+    return update;
 }
