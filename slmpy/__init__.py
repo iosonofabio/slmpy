@@ -20,8 +20,7 @@ class ModularityOptimzer:
         '''
         self = cls()
         self.edges = np.asarray(edges, dtype=np.uint64)
-        if self.edges.shape[1] != 2:
-            raise ValueError('Edges must be pairs')
+        self._finish_initialization()
         return self
 
     @classmethod
@@ -38,7 +37,14 @@ class ModularityOptimzer:
         '''
         self = cls()
         self.edges = np.loadtxt(filename, delimiter='\t', dtype=np.uint64)
-        if self.edges.shape[1] != 2:
-            raise ValueError('Edges must be pairs')
+        self._finish_initialization()
         return self
 
+    def _finish_initialization(self):
+        if self.edges.shape[1] != 2:
+            raise ValueError('Edges must be pairs')
+
+        self.nodes = np.unique(self.edges)
+
+        # The default is to start with each node in its own community
+        self.communities = self.nodes.copy()
