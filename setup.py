@@ -45,7 +45,7 @@ numpy_include_dir = os.path.join(os.path.dirname(numpy.__file__),
 # Update version from VERSION file into module
 with open('VERSION') as fversion:
     __version__ = fversion.readline().rstrip()
-with open('lshknn/_version.py', 'wt') as fversion:
+with open('slmpy/_version.py', 'wt') as fversion:
     fversion.write('__version__ = "'+__version__+'"')
 
 
