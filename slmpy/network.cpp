@@ -12,12 +12,17 @@
 void Network::fromPython(
     py::EigenDRef<const Eigen::Matrix<uint64_t, -1, -1> > edgesIn,
     py::EigenDRef<const Eigen::Matrix<uint64_t, -1, -1> > nodesIn,
-    py::EigenDRef<const Eigen::Matrix<uint64_t, -1, -1> > clustersIn,
-    uint64_t nClusters) {
+    py::EigenDRef<const Eigen::Matrix<uint64_t, -1, -1> > clustersIn) {
+
+    // Count the clusters
+    std::set<uint64_t> clusterIdSet;
+    for(size_t i=0; i < clustersIn.rows(); i++) {
+        clusterIdSet.insert(clustersIn(i, 0));
+    }
 
     // Make empty communities
-    for(uint64_t clusterId=0; clusterId < nClusters; clusterId++) {
-        Cluster c(clustersIn(clusterId, 0));
+    for(auto cid = clusterIdSet.begin(); cid != clusterIdSet.end(); cid++) {
+        Cluster c(*cid);
         clusters.push_back(c);
     }
 
@@ -345,4 +350,13 @@ bool Network::runLocalMovingAlgorithm(uint32_t randomSeed) {
     } while(numberStableNodes < nNodes);
 
     return update;
+}
+
+
+std::vector<uint64_t> Network::getClusterIds() {
+    std::vector<uint64_t> clusterIds(nodes.size());
+    for(size_t i=0; i<nodes.size(); i++) {
+        clusterIds[i] = nodes[i].cluster; 
+    }
+    return clusterIds;
 }

@@ -43,10 +43,8 @@ class Network {
         void fromPython(
             py::EigenDRef<const Eigen::Matrix<uint64_t, -1, -1> > edgesIn,
             py::EigenDRef<const Eigen::Matrix<uint64_t, -1, -1> > nodesIn,
-            py::EigenDRef<const Eigen::Matrix<uint64_t, -1, -1> > clustersIn,
-            uint64_t nClusters);
+            py::EigenDRef<const Eigen::Matrix<uint64_t, -1, -1> > clustersIn);
 
-        // FIXME: use random generators
         std::vector<uint64_t> nodesInRadomOrder(uint32_t seed);
         bool runLocalMovingAlgorithm(uint32_t randomSeed);
 
@@ -54,21 +52,19 @@ class Network {
         uint64_t findBestCluster(uint64_t nodeId);
         void updateCluster(uint64_t nodeId, uint64_t clusterId);
 
-
-        
+        std::vector<uint64_t> getClusterIds();
 
 };
 
 
 
-// this is the interface fuction
+///////////////////////////////////////////////////////////
+// Python Interface
+///////////////////////////////////////////////////////////
 int smart_local_moving(
-    // I make copies of the data structures in C++ for convenience
+    py::EigenDRef<Eigen::Matrix<uint64_t, -1, -1> > communities_out,
     py::EigenDRef<const Eigen::Matrix<uint64_t, -1, -1> > edges,        
     py::EigenDRef<const Eigen::Matrix<uint64_t, -1, -1> > nodes,        
-    py::EigenDRef<Eigen::Matrix<uint64_t, -1, -1> > communities,
-    uint64_t n_nodes,
-    uint64_t n_edges,
-    uint64_t n_communities,
+    py::EigenDRef<const Eigen::Matrix<uint64_t, -1, -1> > communities,
     uint32_t random_seed,
     uint64_t n_iterations);

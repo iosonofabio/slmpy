@@ -56,14 +56,13 @@ class ModularityOptimzer:
     def __call__(self, random_seed=0):
         '''Run the smart local moving algorithm'''
 
-        tmp = _smart_local_moving(
+        communities_out = self.communities.copy()
+        _smart_local_moving(
+                communities_out,
                 self.edges,
                 self.nodes,
                 self.communities,
-                self.nodes.shape[0],
-                self.edges.shape[0],
-                len(np.unique(self.communities)),
                 random_seed,
                 self.n_iterations,
                 )
-        return tmp
+        return communities_out
