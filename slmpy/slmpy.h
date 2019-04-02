@@ -38,12 +38,14 @@ class Network {
         std::vector<Node> nodes;
         std::vector<Cluster> clusters;
 
-        Network(uint64_t nN, uint64_t nE) {nNodes = nN; nEdges = nE;};
+        Network() {};
 
         void fromPython(
-            py::EigenDRef<const Eigen::Matrix<uint64_t, -1, -1> > edgesIn,
-            py::EigenDRef<const Eigen::Matrix<uint64_t, -1, -1> > nodesIn,
-            py::EigenDRef<const Eigen::Matrix<uint64_t, -1, -1> > clustersIn);
+            py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 2> > edgesIn,
+            py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > nodesIn,
+            py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > clustersIn);
+        void toPython(
+            py::EigenDRef<Eigen::Matrix<uint64_t, -1, 1> > communities_out);
 
         std::vector<uint64_t> nodesInRadomOrder(uint32_t seed);
         bool runLocalMovingAlgorithm(uint32_t randomSeed);
@@ -62,9 +64,9 @@ class Network {
 // Python Interface
 ///////////////////////////////////////////////////////////
 int smart_local_moving(
-    py::EigenDRef<Eigen::Matrix<uint64_t, -1, -1> > communities_out,
-    py::EigenDRef<const Eigen::Matrix<uint64_t, -1, -1> > edges,        
-    py::EigenDRef<const Eigen::Matrix<uint64_t, -1, -1> > nodes,        
-    py::EigenDRef<const Eigen::Matrix<uint64_t, -1, -1> > communities,
+    py::EigenDRef<Eigen::Matrix<uint64_t, -1, 1> > communities_out,
+    py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 2> > edges,        
+    py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > nodes,        
+    py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > communities,
     uint32_t random_seed,
     uint64_t n_iterations);

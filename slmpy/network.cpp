@@ -10,9 +10,13 @@
 
 
 void Network::fromPython(
-    py::EigenDRef<const Eigen::Matrix<uint64_t, -1, -1> > edgesIn,
-    py::EigenDRef<const Eigen::Matrix<uint64_t, -1, -1> > nodesIn,
-    py::EigenDRef<const Eigen::Matrix<uint64_t, -1, -1> > clustersIn) {
+    py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 2> > edgesIn,
+    py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > nodesIn,
+    py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > clustersIn) {
+
+    // Set number of nodes and edges
+    nNodes = nodesIn.rows();
+    nEdges = edgesIn.rows();
 
     // Count the clusters
     std::set<uint64_t> clusterIdSet;
@@ -70,6 +74,21 @@ void Network::fromPython(
                 break;
             }
         }
+    }
+}
+
+
+// Fill output vector
+void Network::toPython(
+    py::EigenDRef<Eigen::Matrix<uint64_t, -1, 1> > communities_out) {
+
+    std::vector<uint64_t> communities_from_network = getClusterIds();
+
+    uint64_t irow = 0;
+    for(std::vector<long unsigned int>::iterator c=communities_from_network.begin();
+        c != communities_from_network.end();
+        c++) {
+        communities_out(irow++, 0) = *c;
     }
 }
 
