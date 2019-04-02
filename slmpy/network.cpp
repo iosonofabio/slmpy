@@ -193,8 +193,8 @@ uint64_t Network::findBestCluster(uint64_t nodeId) {
     for(auto c=clusters.begin();
         c != clusters.end();
         c++) {
-        //if(std::find(neighboringClusters.begin(), neighboringClusters.end(), c->clusterId) == neighboringClusters.end())
-        //    continue;
+        if(std::find(neighboringClusters.begin(), neighboringClusters.end(), c->clusterId) == neighboringClusters.end())
+            continue;
 
         // If the node stays where it is, the diff of modularity is zero
         // this is always possible (stable node)
@@ -214,16 +214,19 @@ uint64_t Network::findBestCluster(uint64_t nodeId) {
                 n != nodes.end();
                 n++) {
                 if(n->nodeId == nodeId) {
-                    // Adding this node to the cluster can add internal edges
-                    // check all nodes in this cluster for edges
+                    // Adding node to the new cluster
                     for(std::vector<Node>::iterator n2=c->nodes.begin();
                         n2 != c->nodes.end();
                         n2++) {
+                        // 1. This can add internal edges
                         if(std::find(neighborsId.begin(), neighborsId.end(), n2->nodeId) != neighborsId.end()) {
                             mod += 1.0 / (2 * nEdges);
                         }
+                        // 2. Subtract k_i sum_j k_j / (2m)^2 from the new cluster
+                        mod -= 1.0 * n->degree() * n2->degree() / (2 * nEdges) / (2 * nEdges);
                     }
-                    // Removing the node from the original cluster can remove edges
+
+                    // Removing the node from the original cluster
                     for(std::vector<Cluster>::iterator c2=clusters.begin();
                         c2 != clusters.end();
                         c2++) {
@@ -231,13 +234,17 @@ uint64_t Network::findBestCluster(uint64_t nodeId) {
                             for(std::vector<Node>::iterator n2=c2->nodes.begin();
                                 n2 != c2->nodes.end();
                                 n2++) {
+                                // 3. This can remove edges
                                 if(std::find(neighborsId.begin(), neighborsId.end(), n2->nodeId) != neighborsId.end()) {
                                     mod -= 1.0 / (2 * nEdges);
                                 }
+                                // 4. Add k_i sum_j k_j / (2m)^2 to the old cluster
+                                mod += 1.0 * n->degree() * n2->degree() / (2 * nEdges) / (2 * nEdges);
                             }
                         break;
                         }
                     }
+
                     break;
                 }
             }
@@ -247,9 +254,7 @@ uint64_t Network::findBestCluster(uint64_t nodeId) {
             }
         }
     }
-
-
-    return 4;
+    return clusterIdMax;
 }
 
 
