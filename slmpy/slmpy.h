@@ -48,7 +48,7 @@ class Network {
             py::EigenDRef<Eigen::Matrix<uint64_t, -1, 1> > communities_out);
 
         std::vector<uint64_t> nodesInRadomOrder(uint32_t seed);
-        bool runLocalMovingAlgorithm(uint32_t randomSeed);
+        bool runLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxIterations = -1);
 
         double calcModularity();
         uint64_t findBestCluster(uint64_t nodeId);

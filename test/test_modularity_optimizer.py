@@ -64,4 +64,4 @@ def test_call_interface_local_heuristic():
             )
     mo.n_iterations = 1
     a = mo()
-    assert((a == [0, 0, 0]).all())
+    assert((a == a[0]).all())

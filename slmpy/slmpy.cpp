@@ -23,8 +23,7 @@ int smart_local_moving(
     net.fromPython(edges, nodes, communities);
 
     for(uint64_t it=0; it < n_iterations; it++) {
-        std::cout << "runLocalMovingAlgorithm, iteration " << (it+1) << std::endl;
-        //net.runLocalMovingAlgorithm(random_seed);
+        net.runLocalMovingAlgorithm(random_seed);
     }
     net.toPython(communities_out);
 

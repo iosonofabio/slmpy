@@ -1,3 +1,4 @@
+#include <iostream>
 #include <set>
 #include <map>
 #include <cmath>
@@ -31,16 +32,18 @@ void Network::fromPython(
     }
 
     // Fill the nodes
-    uint64_t tmp;
-    uint64_t tmp2;
-    uint64_t nNodesDone = 0;
-    for(uint64_t nodeId=0; nodeId < nNodes; nodeId++) {
-        Node n(nodesIn(nodeId, 0), clustersIn(nNodesDone++, 0));
+    std::cout << "Fillig the nodes from Python: ";
+    for(uint64_t i=0; i < nNodes; i++) {
+        Node n(nodesIn(i, 0), clustersIn(i, 0));
         nodes.push_back(n);
+        std::cout << n.nodeId << " ";
     }
+    std::cout << std::endl << std::flush;
 
     // Fill the edges (both directions)
-    // NOTE: this assumes that the input edges are unique
+    // NOTE: this assumes that the input edges are unique, not redundant
+    uint64_t tmp;
+    uint64_t tmp2;
     for(uint64_t edgeId=0; edgeId < nEdges; edgeId++) {
         tmp = edgesIn(edgeId, 0);
         tmp2 = edgesIn(edgeId, 1);
@@ -160,6 +163,14 @@ double Network::calcModularity() {
 std::vector<uint64_t> Network::nodesInRadomOrder(uint32_t seed) {
     std::srand(seed);
     std::vector<uint64_t> randomOrder(nNodes);
+
+    std::cout << "Randomizing order, original order: ";
+    for(size_t i=0; i != nodes.size(); i++) {
+        randomOrder[i] = nodes[i].nodeId;
+        std::cout << randomOrder[i] << " ";
+    }
+    std::cout << std::endl << std::flush;
+
     std::random_shuffle(randomOrder.begin(), randomOrder.end());
     return randomOrder;
 }
@@ -322,29 +333,37 @@ void Network::updateCluster(uint64_t nodeId, uint64_t clusterId) {
 
 }
 
-bool Network::runLocalMovingAlgorithm(uint32_t randomSeed) {
-    double mod = 0;
-
-    if(nNodes == 1)
-        return false;
-
+bool Network::runLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxIterations) {
     bool update = false;
 
-    // Add randomization ;-)
+    if(nNodes == 1)
+        return update;
+
+    std::cout << "runLocalMovingAlgorithm, shuffling nodes" << std::endl << std::flush;
     std::vector<uint64_t> nodesShuffled = nodesInRadomOrder(randomSeed);
+    for(size_t i=0; i!=nNodes; i++)
+        std::cout << nodesShuffled[i] << " ";
+    std::cout << std::endl << std::flush;
 
     uint64_t numberStableNodes = 0;
     int i = 0;
     uint64_t nodeId;
     uint64_t bestClusterId;
     bool isStable;
+    int64_t iteration = 0;
     do {
-        nodeId = nodesShuffled[i];
-        isStable = false;
+        std::cout << "runLocalMovingAlgorithm, iteration " << (iteration + 1) << std::endl << std::flush;
 
+        isStable = false;
+        nodeId = nodesShuffled[i];
+        std::cout << "random node id: " << nodeId << std::endl << std::flush;
+
+        std::cout << "findBestCluster" << std::endl << std::flush;
         // Find best cluster for the random node, including its own one
         bestClusterId = findBestCluster(nodeId);
+        std::cout << "bestClusterId: " << bestClusterId << std::endl << std::flush;
 
+        std::cout << "check for stability" << std::endl << std::flush;
         // If the best cluster was already set, the node is stable
         for(std::vector<Node>::iterator n=nodes.begin();
             n != nodes.end();
@@ -357,14 +376,27 @@ bool Network::runLocalMovingAlgorithm(uint32_t randomSeed) {
                 break;
             }
         }
+
+        std::cout << "stable: " << isStable << std::endl << std::flush;
+
         if(!isStable) {
+            std::cout << "node is unstable, updateCluster" << std::endl << std::flush;
+
             updateCluster(nodeId, bestClusterId); 
             numberStableNodes = 1;
             update = true;
+
+            std::cout << "clusters updated" << std::endl << std::flush;
         }
 
         // cycle around the random vector
-        i = (i < nodes.size() - 1) ? (i + 1) : 0;
+        i = (i < nodesShuffled.size() - 1) ? (i + 1) : 0;
+
+        std::cout << "end of iteration, looping with i = " << i << std::endl << std::endl << std::flush;
+
+        iteration++;
+        if(iteration == maxIterations)
+            break;
     
     } while(numberStableNodes < nNodes);
 
