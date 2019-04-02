@@ -49,6 +49,7 @@ class Network {
 
         std::vector<uint64_t> nodesInRadomOrder(uint32_t seed);
         bool runLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxIterations = -1);
+        bool runSmartLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxIterations = -1);
 
         double calcModularity();
         uint64_t findBestCluster(uint64_t nodeId);
@@ -57,16 +58,3 @@ class Network {
         std::vector<uint64_t> getClusterIds();
 
 };
-
-
-
-///////////////////////////////////////////////////////////
-// Python Interface
-///////////////////////////////////////////////////////////
-int smart_local_moving(
-    py::EigenDRef<Eigen::Matrix<uint64_t, -1, 1> > communities_out,
-    py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 2> > edges,        
-    py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > nodes,        
-    py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > communities,
-    uint32_t random_seed,
-    uint64_t n_iterations);

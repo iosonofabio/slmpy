@@ -96,6 +96,15 @@ void Network::toPython(
 }
 
 
+std::vector<uint64_t> Network::getClusterIds() {
+    std::vector<uint64_t> clusterIds(nodes.size());
+    for(size_t i=0; i<nodes.size(); i++) {
+        clusterIds[i] = nodes[i].cluster; 
+    }
+    return clusterIds;
+}
+
+
 //// Calculate the modularity
 ////
 //// Q = 1 / 2m * sum_ij [ A_ij - k_i k_j / 2m ] delta(c_i, c_j)
@@ -404,10 +413,7 @@ bool Network::runLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxIterations
 }
 
 
-std::vector<uint64_t> Network::getClusterIds() {
-    std::vector<uint64_t> clusterIds(nodes.size());
-    for(size_t i=0; i<nodes.size(); i++) {
-        clusterIds[i] = nodes[i].cluster; 
-    }
-    return clusterIds;
+bool Network::runSmartLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxIterations) {
+    // FIXME
+    return runLocalMovingAlgorithm(randomSeed, maxIterations);
 }

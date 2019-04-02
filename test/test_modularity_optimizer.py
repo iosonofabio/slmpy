@@ -48,7 +48,7 @@ def test_call_interface_zero_iterations():
             )
     mo.n_iterations = 0
     mo.communities = np.arange(3, dtype=np.uint64)
-    a = mo()
+    a = mo(algorithm='local_moving')
     assert((a == [0, 1, 2]).all())
 
 
@@ -63,5 +63,20 @@ def test_call_interface_local_heuristic():
             ],
             )
     mo.n_iterations = 1
-    a = mo()
+    a = mo(algorithm='local_moving')
+    assert((a == a[0]).all())
+
+
+def test_call_interface_slm():
+    from slmpy import ModularityOptimzer
+
+    mo = ModularityOptimzer.load_from_edge_list(
+            [
+             [0, 1],
+             [0, 2],
+             [1, 2],
+            ],
+            )
+    mo.n_iterations = 1
+    a = mo(algorithm='smart_local_moving')
     assert((a == a[0]).all())

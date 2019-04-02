@@ -1,5 +1,5 @@
 import numpy as np
-from ._slmpy import smart_local_moving as _smart_local_moving
+from ._slmpy import smart_local_moving, local_moving
 
 
 
@@ -53,16 +53,28 @@ class ModularityOptimzer:
         # NOTE: the communities are numbered 0 to N-1 by default
         self.communities = np.arange(len(self.nodes), dtype=np.uint64)
 
-    def __call__(self, random_seed=0):
-        '''Run the smart local moving algorithm'''
+    def __call__(self, algorithm='smart_local_moving', random_seed=0):
+        '''Run the optimizer'''
 
         communities_out = self.communities.copy()
-        _smart_local_moving(
-                communities_out,
-                self.edges,
-                self.nodes,
-                self.communities,
-                random_seed,
-                self.n_iterations,
-                )
+
+        if algorithm == 'smart_local_moving':
+            smart_local_moving(
+                    communities_out,
+                    self.edges,
+                    self.nodes,
+                    self.communities,
+                    random_seed,
+                    self.n_iterations,
+                    )
+        elif algorithm == 'local_moving':
+            local_moving(
+                    communities_out,
+                    self.edges,
+                    self.nodes,
+                    self.communities,
+                    random_seed,
+                    self.n_iterations,
+                    )
+
         return communities_out
