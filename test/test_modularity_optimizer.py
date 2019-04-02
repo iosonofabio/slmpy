@@ -37,7 +37,7 @@ def test_load_karate():
     assert(np.allclose([[0, 1], [0, 2]], mo.edges[:2]))
 
 
-def test_call_interface():
+def test_call_interface_zero_iterations():
     from slmpy import ModularityOptimzer
 
     mo = ModularityOptimzer.load_from_edge_list(
@@ -47,20 +47,21 @@ def test_call_interface():
             ],
             )
     mo.n_iterations = 0
+    mo.communities = np.arange(3, dtype=np.uint64)
     a = mo()
-    assert(a == -37)
+    assert((a == [0, 1, 2]).all())
 
 
-def test_call_interface2():
+def test_call_interface_local_heuristic():
     from slmpy import ModularityOptimzer
 
     mo = ModularityOptimzer.load_from_edge_list(
             [
              [0, 1],
-             [3, 1],
+             [0, 2],
+             [1, 2],
             ],
             )
-    mo.communities[:] = 0
-    mo.n_iterations = 0
+    mo.n_iterations = 1
     a = mo()
-    assert(a == 0)
+    assert((a == [0, 0, 0]).all())
