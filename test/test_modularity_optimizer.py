@@ -46,6 +46,7 @@ def test_call_interface():
              [3, 1],
             ],
             )
+    mo.n_iterations = 0
     a = mo()
     assert(a == -37)
 
@@ -60,5 +61,6 @@ def test_call_interface2():
             ],
             )
     mo.communities[:] = 0
+    mo.n_iterations = 0
     a = mo()
     assert(a == 0)
