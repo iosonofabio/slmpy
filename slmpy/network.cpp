@@ -1,9 +1,8 @@
 #include <set>
 #include <map>
 #include <cmath>
-#include <boost/random/mersenne_twister.hpp>
-#include <boost/random/shuffle_order.hpp>
-#include <boost/random/linear_congruential.hpp>
+#include <algorithm> // std::random_shuffle
+#include <cstdlib>   // std::rand, std::srand
 
 #include <pybind11/pybind11.h>
 #include <pybind11/eigen.h>
@@ -133,21 +132,11 @@ double Network::calcModularity() {
 }
 
 
-//FIXME: this is totally unclear, look it up
+// shuffle order of nodes that get probes by the local moving heuristic
 std::vector<uint64_t> Network::nodesInRadomOrder(uint32_t seed) {
-    using RandomSource = boost::mt19937;    
-    RandomSource randomSource(seed);
-
-    std::vector<uint64_t> randomOrder(nodes.size());
-    boost::random::shuffle_order_engine<
-    boost::random::linear_congruential_engine<uint32_t, 1366, 150889, 714025>,
-    97> kreutzer1986();
-
-    //kreutzer1986.generate(randomOrder.begin(), randomOrder.end());
-
-
-
-
+    std::srand(seed);
+    std::vector<uint64_t> randomOrder(nNodes);
+    std::random_shuffle(randomOrder.begin(), randomOrder.end());
     return randomOrder;
 }
 
@@ -350,6 +339,7 @@ bool Network::runLocalMovingAlgorithm(uint32_t randomSeed) {
             update = true;
         }
 
+        // cycle around the random vector
         i = (i < nodes.size() - 1) ? (i + 1) : 0;
     
     } while(numberStableNodes < nNodes);
