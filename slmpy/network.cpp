@@ -1,3 +1,4 @@
+#include <set>
 #include <map>
 #include <cmath>
 #include <boost/random/mersenne_twister.hpp>
@@ -151,8 +152,103 @@ std::vector<uint64_t> Network::nodesInRadomOrder(uint32_t seed) {
 }
 
 
-// TODO: write this
+// When you flip a node, figure what cluster flip increases the modularity most
+// The algorithm has two parts:
+// 1. figure out the list of clusters this node has edges with (neighboring clusters)
+// 2. go over the neighboring clusters and calculate the difference in modularity
 uint64_t Network::findBestCluster(uint64_t nodeId) {
+
+    // 1. Make list of neighboring clusters
+    uint64_t origClusterId;
+    std::vector<uint64_t> neighborsId;
+    std::set<uint64_t> neighboringClusters;
+    for(std::vector<Node>::iterator n=nodes.begin();
+        n != nodes.end();
+        n++) {
+        if(n->nodeId == nodeId) {
+            neighborsId = n->neighbors;
+            origClusterId = n->cluster;
+            // We want to keep the original cluster as an option, to not force change
+            neighboringClusters.insert(n->cluster);
+            break;
+        }
+    }
+    for(std::vector<Cluster>::iterator c=clusters.begin();
+        c != clusters.end();
+        c++) {
+        for(std::vector<Node>::iterator n=c->nodes.begin();
+            n != c->nodes.end();
+            n++) {
+            if(std::find(neighborsId.begin(), neighborsId.end(), n->nodeId) != neighborsId.end()) {
+                neighboringClusters.insert(c->clusterId);
+            }
+        } 
+    }
+
+    // 2. Compute the best cluster
+    double mod;
+    // This is ok because not moving the node has delta mod = 0 > -1
+    double modMax = -1;
+    uint64_t clusterIdMax;
+    for(auto c=clusters.begin();
+        c != clusters.end();
+        c++) {
+        //if(std::find(neighboringClusters.begin(), neighboringClusters.end(), c->clusterId) == neighboringClusters.end())
+        //    continue;
+
+        // If the node stays where it is, the diff of modularity is zero
+        // this is always possible (stable node)
+        if(c->clusterId == origClusterId) {
+            mod = 0;
+            if(mod > modMax) {
+                modMax = mod;
+                clusterIdMax = c->clusterId;
+            }
+        } else {
+            // The cluster gains a few internal links (with nodeId)
+            // The original cluster might lose a few links
+            // vice versa with the squared sums of degrees
+            // so there are 4 terms in this evaluation
+            mod = 0;
+            for(std::vector<Node>::iterator n=nodes.begin();
+                n != nodes.end();
+                n++) {
+                if(n->nodeId == nodeId) {
+                    // Adding this node to the cluster can add internal edges
+                    // check all nodes in this cluster for edges
+                    for(std::vector<Node>::iterator n2=c->nodes.begin();
+                        n2 != c->nodes.end();
+                        n2++) {
+                        if(std::find(neighborsId.begin(), neighborsId.end(), n2->nodeId) != neighborsId.end()) {
+                            mod += 1.0 / (2 * nEdges);
+                        }
+                    }
+                    // Removing the node from the original cluster can remove edges
+                    for(std::vector<Cluster>::iterator c2=clusters.begin();
+                        c2 != clusters.end();
+                        c2++) {
+                        if(c2->clusterId == origClusterId) {
+                            for(std::vector<Node>::iterator n2=c2->nodes.begin();
+                                n2 != c2->nodes.end();
+                                n2++) {
+                                if(std::find(neighborsId.begin(), neighborsId.end(), n2->nodeId) != neighborsId.end()) {
+                                    mod -= 1.0 / (2 * nEdges);
+                                }
+                            }
+                        break;
+                        }
+                    }
+                    break;
+                }
+            }
+            if(mod > modMax) {
+                modMax = mod;
+                clusterIdMax = c->clusterId;
+            }
+        }
+    }
+
+
     return 4;
 }
 
