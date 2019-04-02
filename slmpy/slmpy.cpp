@@ -54,11 +54,11 @@ int smart_local_moving(
     Network net(n_nodes, n_edges);
     net.fromPython(edges, nodes, communities, n_communities);
 
-    net.runLocalMovingAlgorithm(random_seed);
+    for(uint64_t it=0; it < n_iterations; it++) {
+        net.runLocalMovingAlgorithm(random_seed);
+    }
 
     return (int) 100 * net.calcModularity();
-
-    //return n_iterations;
 };
 
 PYBIND11_MODULE(_slmpy, m) {
