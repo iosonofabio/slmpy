@@ -66,17 +66,19 @@ void Network::toPython(
     py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > nodesIn,
     py::EigenDRef<Eigen::Matrix<uint64_t, -1, 1> > communitiesOut) {
 
-    // rename communities as 0-N
-    uint64_t clusterIds[clusters.size()]; 
+    // rename communities as 0-N, by inverse size
+    std::vector<std::pair<int64_t, uint64_t>> clusterIds;
     size_t i = 0;
     for(auto c=clusters.begin(); c != clusters.end(); c++) {
-        clusterIds[i++] = c->clusterId;
+        // std::sort uses the first element, ascending
+        std::pair<int64_t, uint64_t> cl(-(c->nodes.size()), c->clusterId);
+        clusterIds.push_back(cl);
         std::cout << "Cluster: " << c->clusterId << " size: " << c->nodes.size() << std::endl << std::flush;
     }
-    std::sort(clusterIds, clusterIds + clusters.size());
+    std::sort(clusterIds.begin(), clusterIds.end());
     std::map<uint64_t, uint64_t> clusterRename;
     for(size_t i=0; i != clusters.size(); i++) {
-        clusterRename[clusterIds[i]] = i;
+        clusterRename[clusterIds[i].second] = i;
     }
 
     for(size_t i=0; i<nodes.size(); i++) {
@@ -258,10 +260,12 @@ uint64_t Network::findBestCluster(uint64_t nodeId) {
 
 void Network::updateCluster(uint64_t nodeId, uint64_t clusterId) {
 
+#if SLMPY_VERBOSE
     std::cout << "updateCluster " << std::endl << std::flush;
     for(auto c=clusters.begin(); c != clusters.end(); c++) {
         std::cout << "Cluster: " << c->clusterId << " size: " << c->nodes.size() << std::endl << std::flush;
     }
+#endif
 
 
     // Update the node list
@@ -305,10 +309,12 @@ void Network::updateCluster(uint64_t nodeId, uint64_t clusterId) {
         clusters.push_back(newCluster);
     }
 
+#if SLMPY_VERBOSE
     std::cout << "post updateCluster " << std::endl << std::flush;
     for(auto c=clusters.begin(); c != clusters.end(); c++) {
         std::cout << "Cluster: " << c->clusterId << " size: " << c->nodes.size() << std::endl << std::flush;
     }
+#endif
 
 }
 
@@ -456,13 +462,16 @@ void Network::createSingletons() {
     for(auto n=nodes.begin(); n != nodes.end(); n++) {
         (n->second).cluster = clusterId++;
     }
+    calcClustersFromNodes();
 }
 
 
 // the next two functions go up and down the reduced network recursion
 Network Network::calculateReducedNetwork() {
-    Network redNet;
 
+    std::cout<<"Reducing network"<<std::endl<<std::flush;
+
+    Network redNet;
     redNet.nNodes = clusters.size();
 
     // Make map of clusterId to reduced network ordering
@@ -504,6 +513,15 @@ Network Network::calculateReducedNetwork() {
 
         redNet.nodes[i] = n;
     }
+
+    //check the reduced network
+    std::cout<<"Reduced:"<<std::endl<<std::flush;
+    for(auto n=redNet.nodes.begin(); n != redNet.nodes.end(); n++) {
+        std::cout << n->first << " "; 
+    }
+    std::cout << std::endl << std::flush;
+
+
     return redNet;
 }
 
