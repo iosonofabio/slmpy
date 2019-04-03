@@ -270,7 +270,6 @@ void Network::updateCluster(uint64_t nodeId, uint64_t clusterId) {
 
 bool Network::runLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxIterations) {
     bool update = false;
-
     if(nNodes == 1)
         return update;
 
@@ -331,12 +330,69 @@ bool Network::runLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxIterations
 }
 
 
-bool Network::runSmartLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxIterations) {
+bool Network::runLouvain(uint32_t randomSeed) {
     bool update = false;
-    for(size_t iter=0; iter != maxIterations; iter++) {
-        update |= runLocalMovingAlgorithm(randomSeed, 3 * nNodes);
+    bool update2;
+    if(nNodes == 1)
+        return update;
 
+    update |= runLocalMovingAlgorithm(randomSeed, 3 * nNodes);
 
+    if(clusters.size() == nodes.size())
+        return update;
+
+    ReducedNetwork redNet = calculateReducedNetwork();
+    redNet.createSingletons();
+    update2 = redNet.runLouvainAlgorithm(randomSeed);
+    if(update2) {
+        update = true;
+        mergeClusters(redNet.clusters);
     }
     return update;
 }
+
+
+bool Network::runSmartLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxIterations) {
+    bool update = false;
+    if(nNodes == 1)
+        return update;
+
+    update |= runLocalMovingAlgorithm(randomSeed, 3 * nNodes);
+
+    if(clusters.size() == nodes.size())
+        return update;
+    
+    // each community -> subnetwork, reset labels and runLocalMoving inside that subnetwork
+    // then set the cluster ids as of the double splitting
+    std::vector<Network> subnetworks;
+    subnetworks.create();
+    uint64_t nClusters = 0;
+    for(size_t isn=0; isn != subnetworks.size(); isn++) {
+        Network& subNet = subnetworks[isn];
+        // reset labels
+        subNet.createSingletons();
+        // cluster within subnetwork
+        subNet.runLocalMovingAlgorithm(randomSeed);
+
+        // assign community numbers to all nodes across the parent network
+        for(auto n=subNet.nodes.begin(); n!=subNet.nodes.end(); n++) {
+            // n->cluster has the clusterId within the subnetwork, go to the
+            // global list of nodes and update it with a new clusterId that
+            // runs over all subnetworks
+            nodes[n->first].cluster = nClusters + n->second.cluster;
+        }
+        nClusters += subnetwork.clusters.size();
+    }
+
+    ReducedNetwork redNet = calculateReducedNetwork();
+    // the initial state is not each reduced node for itself, but rather
+    // each subnetwork for itself. This is probably for convergence/speed reasons
+    redNet.createFromSubnetworks(subnetworks);
+
+    update |= redNet.runSmartLocalMovingAlgorithm(randomSeed, maxIterations);
+    mergeClusters(redNet.clusters);
+
+    return update;
+}
+
+
