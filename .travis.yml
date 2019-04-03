@@ -1,0 +1,86 @@
+notifications:
+  email: false
+language: python
+
+stages:
+ - name: test
+   if: tag IS blank
+ - deploy
+
+jobs:
+  include:
+   - stage: test
+     python: 3.7
+     os: linux
+     dist: xenial
+     sudo: required
+     script:
+      - ./.travis_before_install.sh
+      - ./.travis_install.sh
+      - ./.travis_test.sh
+
+   - stage: test
+     python: 3.6
+     os: linux
+     dist: xenial
+     sudo: required
+     script:
+      - ./.travis_before_install.sh
+      - ./.travis_install.sh
+      - ./.travis_test.sh
+   
+   - stage: test
+     python: 3.5
+     os: linux
+     dist: trusty
+     sudo: required
+     script:
+      - ./.travis_before_install.sh
+      - ./.travis_install.sh
+      - ./.travis_test.sh
+
+   - stage: test
+     python: 3.4
+     os: linux
+     dist: trusty
+     sudo: required
+     script:
+      - ./.travis_before_install.sh
+      - ./.travis_install.sh
+      - ./.travis_test.sh
+
+   - stage: test
+     language: generic
+     os: osx
+     env: PYTHON_VERSION=3.6
+     script:
+      - ./.travis_before_install.sh
+      - ./.travis_install.sh
+      - ./.travis_test.sh
+
+   - stage: test
+     language: generic
+     os: osx
+     env: PYTHON_VERSION=2.7
+     script:
+      - ./.travis_before_install.sh
+      - ./.travis_install.sh
+      - ./.travis_test.sh
+
+   - stage: deploy
+     python: 3.7
+     os: linux
+     dist: xenial
+     sudo: required
+     if: tag =~ ^prerelease_
+     env: PYPI=testpypi
+     script: ./.travis_deploy.sh $PYPI
+
+   - stage: deploy
+     python: 3.7
+     os: linux
+     dist: xenial
+     sudo: required
+     if: tag =~ ^release_
+     env: PYPI=pypi
+     script: ./.travis_deploy.sh $PYPI
