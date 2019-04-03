@@ -35,7 +35,7 @@ void Network::fromPython(
     std::cout << "Fillig the nodes from Python: ";
     for(uint64_t i=0; i < nNodes; i++) {
         Node n(nodesIn(i, 0), clustersIn(i, 0));
-        nodes.push_back(n);
+        nodes[n.nodeId] = n;
         std::cout << n.nodeId << " ";
     }
     std::cout << std::endl << std::flush;
@@ -47,33 +47,15 @@ void Network::fromPython(
     for(uint64_t edgeId=0; edgeId < nEdges; edgeId++) {
         tmp = edgesIn(edgeId, 0);
         tmp2 = edgesIn(edgeId, 1);
-        for(std::vector<Node>::iterator n=nodes.begin();
-            n != nodes.end();
-            n++) {
-            if(n->nodeId == tmp) {
-                n->neighbors.push_back(tmp2);
-                break;
-            }
-         }
-        for(std::vector<Node>::iterator n=nodes.begin();
-            n != nodes.end();
-            n++) {
-            if(n->nodeId == tmp2) {
-                n->neighbors.push_back(tmp);
-                break;
-            }
-         }
+        nodes[tmp].neighbors.push_back(tmp2);
+        nodes[tmp2].neighbors.push_back(tmp);
     }
 
     // Fill the clusters
-    for(std::vector<Node>::iterator n=nodes.begin();
-        n != nodes.end();
-        n++) {
-        for(std::vector<Cluster>::iterator c=clusters.begin();
-            c != clusters.end();
-            c++) {
-            if(n->cluster == c->clusterId) {
-                c->nodes.push_back(*n);
+    for(auto n=nodes.begin(); n != nodes.end(); n++) {
+        for(auto c=clusters.begin(); c != clusters.end(); c++) {
+            if((n->second).cluster == c->clusterId) {
+                c->nodes.push_back(n->first);
                 break;
             }
         }
@@ -83,25 +65,12 @@ void Network::fromPython(
 
 // Fill output vector
 void Network::toPython(
-    py::EigenDRef<Eigen::Matrix<uint64_t, -1, 1> > communities_out) {
+    py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > nodesIn,
+    py::EigenDRef<Eigen::Matrix<uint64_t, -1, 1> > communitiesOut) {
 
-    std::vector<uint64_t> communities_from_network = getClusterIds();
-
-    uint64_t irow = 0;
-    for(std::vector<long unsigned int>::iterator c=communities_from_network.begin();
-        c != communities_from_network.end();
-        c++) {
-        communities_out(irow++, 0) = *c;
-    }
-}
-
-
-std::vector<uint64_t> Network::getClusterIds() {
-    std::vector<uint64_t> clusterIds(nodes.size());
     for(size_t i=0; i<nodes.size(); i++) {
-        clusterIds[i] = nodes[i].cluster; 
+        communitiesOut(i, 0) = nodes[nodesIn(i, 0)].cluster;
     }
-    return clusterIds;
 }
 
 
@@ -129,21 +98,14 @@ std::vector<uint64_t> Network::getClusterIds() {
 double Network::calcModularity() {
     double mod = 0;
 
-    for(std::vector<Cluster>::iterator c=clusters.begin();
-        c != clusters.end();
-        c++) {
+    for(auto c=clusters.begin(); c != clusters.end(); c++) {
 
         // Calculate twice the number of edges within the community
-        for(std::vector<Node>::iterator n=c->nodes.begin();
-            n != c->nodes.end();
-            n++) {
-            for(std::vector<uint64_t>::iterator neiId=n->neighbors.begin();
-                neiId != n->neighbors.end();
-                neiId++) {
-                for(std::vector<Node>::iterator n2=c->nodes.begin();
-                    n2 != c->nodes.end();
-                    n2++) {
-                    if(n2->nodeId == *neiId) {
+        for(auto n=c->nodes.begin(); n != c->nodes.end(); n++) {
+            Node& node = nodes[*n];
+            for(auto neiId=node.neighbors.begin(); neiId != node.neighbors.end(); neiId++) {
+                for(auto n2=c->nodes.begin(); n2 != c->nodes.end(); n2++) {
+                    if((*n2) == (*neiId)) {
                         mod += 1;
                         break;
                     }
@@ -153,10 +115,8 @@ double Network::calcModularity() {
 
         // Subtract the summed degrees
         double sumDeg = 0;
-        for(std::vector<Node>::iterator n=c->nodes.begin();
-            n != c->nodes.end();
-            n++) {
-                sumDeg += n-> degree();
+        for(auto n=c->nodes.begin(); n != c->nodes.end(); n++) {
+                sumDeg += nodes[*n].degree();
         }
         mod -= sumDeg * sumDeg / 2. / nEdges;
     }
@@ -173,12 +133,10 @@ std::vector<uint64_t> Network::nodesInRadomOrder(uint32_t seed) {
     std::srand(seed);
     std::vector<uint64_t> randomOrder(nNodes);
 
-    std::cout << "Randomizing order, original order: ";
-    for(size_t i=0; i != nodes.size(); i++) {
-        randomOrder[i] = nodes[i].nodeId;
-        std::cout << randomOrder[i] << " ";
+    size_t i = 0;
+    for(auto n=nodes.begin(); n != nodes.end(); n++) {
+        randomOrder[i++] = (n->second).nodeId;
     }
-    std::cout << std::endl << std::flush;
 
     std::random_shuffle(randomOrder.begin(), randomOrder.end());
     return randomOrder;
@@ -192,30 +150,13 @@ std::vector<uint64_t> Network::nodesInRadomOrder(uint32_t seed) {
 uint64_t Network::findBestCluster(uint64_t nodeId) {
 
     // 1. Make list of neighboring clusters
-    uint64_t origClusterId;
-    std::vector<uint64_t> neighborsId;
-    std::set<uint64_t> neighboringClusters;
-    for(std::vector<Node>::iterator n=nodes.begin();
-        n != nodes.end();
-        n++) {
-        if(n->nodeId == nodeId) {
-            neighborsId = n->neighbors;
-            origClusterId = n->cluster;
-            // We want to keep the original cluster as an option, to not force change
-            neighboringClusters.insert(n->cluster);
-            break;
-        }
-    }
-    for(std::vector<Cluster>::iterator c=clusters.begin();
-        c != clusters.end();
-        c++) {
-        for(std::vector<Node>::iterator n=c->nodes.begin();
-            n != c->nodes.end();
-            n++) {
-            if(std::find(neighborsId.begin(), neighborsId.end(), n->nodeId) != neighborsId.end()) {
-                neighboringClusters.insert(c->clusterId);
-            }
-        } 
+    Node node = nodes[nodeId];
+    uint64_t origClusterId = node.cluster;
+    std::vector<uint64_t> neighborsId = node.neighbors;
+    // We want to keep the original cluster as an option, to not force change
+    std::set<uint64_t> neighboringClusters({node.cluster});
+    for(auto n=neighborsId.begin(); n != neighborsId.end(); n++) {
+        neighboringClusters.insert(nodes[*n].cluster);
     }
 
     // 2. Compute the best cluster
@@ -243,44 +184,38 @@ uint64_t Network::findBestCluster(uint64_t nodeId) {
             // vice versa with the squared sums of degrees
             // so there are 4 terms in this evaluation
             mod = 0;
-            for(std::vector<Node>::iterator n=nodes.begin();
-                n != nodes.end();
-                n++) {
-                if(n->nodeId == nodeId) {
-                    // Adding node to the new cluster
-                    for(std::vector<Node>::iterator n2=c->nodes.begin();
-                        n2 != c->nodes.end();
-                        n2++) {
-                        // 1. This can add internal edges
-                        if(std::find(neighborsId.begin(), neighborsId.end(), n2->nodeId) != neighborsId.end()) {
-                            mod += 1.0 / (2 * nEdges);
-                        }
-                        // 2. Subtract k_i sum_j k_j / (2m)^2 from the new cluster
-                        mod -= 1.0 * n->degree() * n2->degree() / (2 * nEdges) / (2 * nEdges);
-                    }
+            Node& n = nodes[nodeId];
+            Node n2;
 
-                    // Removing the node from the original cluster
-                    for(std::vector<Cluster>::iterator c2=clusters.begin();
-                        c2 != clusters.end();
-                        c2++) {
-                        if(c2->clusterId == origClusterId) {
-                            for(std::vector<Node>::iterator n2=c2->nodes.begin();
-                                n2 != c2->nodes.end();
-                                n2++) {
-                                // 3. This can remove edges
-                                if(std::find(neighborsId.begin(), neighborsId.end(), n2->nodeId) != neighborsId.end()) {
-                                    mod -= 1.0 / (2 * nEdges);
-                                }
-                                // 4. Add k_i sum_j k_j / (2m)^2 to the old cluster
-                                mod += 1.0 * n->degree() * n2->degree() / (2 * nEdges) / (2 * nEdges);
-                            }
-                        break;
-                        }
-                    }
+            // Hypothetical adding node to the new cluster
+            for(auto ni2=c->nodes.begin(); ni2 != c->nodes.end(); ni2++) {
+                n2 = nodes[*ni2];
 
-                    break;
+                // 1. This can add internal edges
+                if(std::find(neighborsId.begin(), neighborsId.end(), n2.nodeId) != neighborsId.end()) {
+                    mod += 1.0 / (2 * nEdges);
+                }
+                // 2. Subtract k_i sum_j k_j / (2m)^2 from the new cluster
+                mod -= 1.0 * n.degree() * n2.degree() / (2 * nEdges) / (2 * nEdges);
+            }
+
+            // Hypothetical removing the node from the original cluster
+            for(auto c2=clusters.begin(); c2 != clusters.end(); c2++) {
+                if(c2->clusterId == origClusterId) {
+                    for(auto ni2=c2->nodes.begin(); ni2 != c2->nodes.end(); ni2++) {
+                        n2 = nodes[*ni2];
+                            
+                        // 3. This can remove edges
+                        if(std::find(neighborsId.begin(), neighborsId.end(), n2.nodeId) != neighborsId.end()) {
+                            mod -= 1.0 / (2 * nEdges);
+                        }
+                        // 4. Add k_i sum_j k_j / (2m)^2 to the old cluster
+                        mod += 1.0 * n.degree() * n2.degree() / (2 * nEdges) / (2 * nEdges);
+                    }
+                break;
                 }
             }
+
             if(mod > modMax) {
                 modMax = mod;
                 clusterIdMax = c->clusterId;
@@ -294,34 +229,25 @@ uint64_t Network::findBestCluster(uint64_t nodeId) {
 void Network::updateCluster(uint64_t nodeId, uint64_t clusterId) {
 
     // Update the node list
-    uint64_t clusterIdOld;
-    Node newNode(nodeId, clusterId);
-    for(std::vector<Node>::iterator n=nodes.begin();
-        n != nodes.end();
-        n++) {
-        if(n->nodeId == nodeId) {
-            clusterIdOld = n->cluster;
-            n->cluster = clusterId;
-            newNode.neighbors = n->neighbors;
-            break;
-        }
-    }
+    Node& node = nodes[nodeId];
+    uint64_t clusterIdOld = node.cluster;
+    node.cluster = clusterId;
 
     // Update the cluster list
     bool clusterNewFound = false;
     bool clusterEmptyFound = false;
     std::vector<Cluster>::iterator clusterEmpty;
-    for(std::vector<Cluster>::iterator c=clusters.begin();
+    for(auto c=clusters.begin();
         c != clusters.end();
         c++) {
         if(c->clusterId == clusterId) {
-            c->nodes.push_back(newNode);
+            c->nodes.push_back(nodeId);
             clusterNewFound = true;
         } else if(c->clusterId == clusterIdOld) {
-            for(std::vector<Node>::iterator n=c->nodes.begin();
+            for(auto n=c->nodes.begin();
                 n != c->nodes.end();
                 n++) {
-                if(n->nodeId == nodeId) {
+                if((*n) == nodeId) {
                     c->nodes.erase(n);
                     if(c->nodes.size() == 0) {
                             clusterEmpty = c;
@@ -335,7 +261,7 @@ void Network::updateCluster(uint64_t nodeId, uint64_t clusterId) {
     if(clusterEmptyFound)
         clusters.erase(clusterEmpty);
     if(!clusterNewFound) {
-        std::vector<Node> nodesNewCluster({newNode});
+        std::vector<uint64_t> nodesNewCluster({nodeId});
         Cluster newCluster(clusterId, nodesNewCluster);
         clusters.push_back(newCluster);
     }
@@ -372,20 +298,12 @@ bool Network::runLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxIterations
         bestClusterId = findBestCluster(nodeId);
         std::cout << "bestClusterId: " << bestClusterId << std::endl << std::flush;
 
-        std::cout << "check for stability" << std::endl << std::flush;
         // If the best cluster was already set, the node is stable
-        for(std::vector<Node>::iterator n=nodes.begin();
-            n != nodes.end();
-            n++) {
-            if(n->nodeId == nodeId) {
-                if(n->cluster == bestClusterId) {
-                    numberStableNodes++;
-                    isStable = true;
-                }
-                break;
-            }
+        std::cout << "check for stability" << std::endl << std::flush;
+        if(nodes[nodeId].cluster == bestClusterId) {
+            numberStableNodes++;
+            isStable = true;
         }
-
         std::cout << "stable: " << isStable << std::endl << std::flush;
 
         if(!isStable) {
@@ -414,6 +332,11 @@ bool Network::runLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxIterations
 
 
 bool Network::runSmartLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxIterations) {
-    // FIXME
-    return runLocalMovingAlgorithm(randomSeed, maxIterations);
+    bool update = false;
+    for(size_t iter=0; iter != maxIterations; iter++) {
+        update |= runLocalMovingAlgorithm(randomSeed, 3 * nNodes);
+
+
+    }
+    return update;
 }

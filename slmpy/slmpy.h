@@ -24,10 +24,10 @@ class Node {
 class Cluster {
     public:
         uint64_t clusterId;
-        std::vector<Node> nodes;
+        std::vector<uint64_t> nodes;
 
         Cluster(uint64_t clId) {clusterId = clId;};
-        Cluster(uint64_t clId, std::vector<Node> ns) {clusterId = clId; nodes = ns;};
+        Cluster(uint64_t clId, std::vector<uint64_t> ns) {clusterId = clId; nodes = ns;};
 
 };
 
@@ -35,7 +35,7 @@ class Network {
     public:
         uint64_t nNodes;
         uint64_t nEdges;
-        std::vector<Node> nodes;
+        std::map<uint64_t, Node> nodes;
         std::vector<Cluster> clusters;
 
         Network() {};
@@ -45,7 +45,8 @@ class Network {
             py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > nodesIn,
             py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > clustersIn);
         void toPython(
-            py::EigenDRef<Eigen::Matrix<uint64_t, -1, 1> > communities_out);
+            py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > nodesIn,
+            py::EigenDRef<Eigen::Matrix<uint64_t, -1, 1> > communitiesOut);
 
         std::vector<uint64_t> nodesInRadomOrder(uint32_t seed);
         bool runLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxIterations = -1);
@@ -54,7 +55,5 @@ class Network {
         double calcModularity();
         uint64_t findBestCluster(uint64_t nodeId);
         void updateCluster(uint64_t nodeId, uint64_t clusterId);
-
-        std::vector<uint64_t> getClusterIds();
 
 };

@@ -21,11 +21,10 @@ int local_moving(
 
     Network net;
     net.fromPython(edges, nodes, communities);
-
     for(uint64_t it=0; it < n_iterations; it++) {
         net.runLocalMovingAlgorithm(random_seed);
     }
-    net.toPython(communities_out);
+    net.toPython(nodes, communities_out);
 
     return 0;
 };
@@ -41,11 +40,8 @@ int smart_local_moving(
 
     Network net;
     net.fromPython(edges, nodes, communities);
-
-    for(uint64_t it=0; it < n_iterations; it++) {
-        net.runSmartLocalMovingAlgorithm(random_seed);
-    }
-    net.toPython(communities_out);
+    net.runSmartLocalMovingAlgorithm(random_seed, n_iterations);
+    net.toPython(nodes, communities_out);
 
     return 0;
 };
