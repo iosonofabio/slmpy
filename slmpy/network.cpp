@@ -17,7 +17,7 @@ void Network::fromPython(
 
     // Set number of nodes and edges
     nNodes = nodesIn.rows();
-    nEdges = edgesIn.rows();
+    uint64_t nEdges = edgesIn.rows();
 
     // Count the clusters
     std::set<uint64_t> clusterIdSet;
@@ -47,8 +47,9 @@ void Network::fromPython(
     for(uint64_t edgeId=0; edgeId < nEdges; edgeId++) {
         tmp = edgesIn(edgeId, 0);
         tmp2 = edgesIn(edgeId, 1);
-        nodes[tmp].neighbors.push_back(tmp2);
-        nodes[tmp2].neighbors.push_back(tmp);
+        // Unweighted edges get a weight of 1
+        nodes[tmp].neighbors[tmp2] = 1;
+        nodes[tmp2].neighbors[tmp] = 1;
     }
 
     // Fill the clusters
@@ -98,14 +99,15 @@ void Network::toPython(
 double Network::calcModularity() {
     double mod = 0;
 
-    for(auto c=clusters.begin(); c != clusters.end(); c++) {
+    double nEdges2 = calcTwiceTotalEdges(); 
 
+    for(auto c=clusters.begin(); c != clusters.end(); c++) {
         // Calculate twice the number of edges within the community
         for(auto n=c->nodes.begin(); n != c->nodes.end(); n++) {
             Node& node = nodes[*n];
             for(auto neiId=node.neighbors.begin(); neiId != node.neighbors.end(); neiId++) {
                 for(auto n2=c->nodes.begin(); n2 != c->nodes.end(); n2++) {
-                    if((*n2) == (*neiId)) {
+                    if((*n2) == (neiId->first)) {
                         mod += 1;
                         break;
                     }
@@ -118,11 +120,11 @@ double Network::calcModularity() {
         for(auto n=c->nodes.begin(); n != c->nodes.end(); n++) {
                 sumDeg += nodes[*n].degree();
         }
-        mod -= sumDeg * sumDeg / 2. / nEdges;
+        mod -= sumDeg * sumDeg / nEdges2;
     }
 
     // NOTE: this is useless for the optimization, but oh so cheap
-    mod /= 2 * nEdges;
+    mod /= nEdges2;
 
     return mod;
 }
@@ -143,6 +145,16 @@ std::vector<uint64_t> Network::nodesInRadomOrder(uint32_t seed) {
 }
 
 
+double Network::calcTwiceTotalEdges() {
+    double w = 0;
+    for(auto n=nodes.begin(); n != nodes.end(); n++) {
+        for(auto nei = n->second.neighbors.begin(); nei != n->second.neighbors.end(); nei++) {
+            w += nei->second;
+        }
+    }
+    return w;
+}
+
 // When you flip a node, figure what cluster flip increases the modularity most
 // The algorithm has two parts:
 // 1. figure out the list of clusters this node has edges with (neighboring clusters)
@@ -152,14 +164,15 @@ uint64_t Network::findBestCluster(uint64_t nodeId) {
     // 1. Make list of neighboring clusters
     Node node = nodes[nodeId];
     uint64_t origClusterId = node.cluster;
-    std::vector<uint64_t> neighborsId = node.neighbors;
+    std::map<uint64_t, double> neighborsId = node.neighbors;
     // We want to keep the original cluster as an option, to not force change
     std::set<uint64_t> neighboringClusters({node.cluster});
     for(auto n=neighborsId.begin(); n != neighborsId.end(); n++) {
-        neighboringClusters.insert(nodes[*n].cluster);
+        neighboringClusters.insert(nodes[n->first].cluster);
     }
 
     // 2. Compute the best cluster
+    double nEdges2 = calcTwiceTotalEdges();
     double mod;
     // This is ok because not moving the node has delta mod = 0 > -1
     double modMax = -1;
@@ -192,11 +205,15 @@ uint64_t Network::findBestCluster(uint64_t nodeId) {
                 n2 = nodes[*ni2];
 
                 // 1. This can add internal edges
-                if(std::find(neighborsId.begin(), neighborsId.end(), n2.nodeId) != neighborsId.end()) {
-                    mod += 1.0 / (2 * nEdges);
+                for(auto nei=neighborsId.begin(); nei != neighborsId.end(); nei++) {
+                    if(nei->first == n2.nodeId) {
+                        mod += nei->second / nEdges2;
+                        break;
+                    }
                 }
                 // 2. Subtract k_i sum_j k_j / (2m)^2 from the new cluster
-                mod -= 1.0 * n.degree() * n2.degree() / (2 * nEdges) / (2 * nEdges);
+                // FIXME: correct this using self weights etc.
+                mod -= 1.0 * n.degree() * n2.degree() / nEdges2 / nEdges2;
             }
 
             // Hypothetical removing the node from the original cluster
@@ -206,11 +223,15 @@ uint64_t Network::findBestCluster(uint64_t nodeId) {
                         n2 = nodes[*ni2];
                             
                         // 3. This can remove edges
-                        if(std::find(neighborsId.begin(), neighborsId.end(), n2.nodeId) != neighborsId.end()) {
-                            mod -= 1.0 / (2 * nEdges);
+                        for(auto nei=neighborsId.begin(); nei != neighborsId.end(); nei++) {
+                            if(nei->first == n2.nodeId) {
+                                mod -= nei->second / nEdges2;
+                                break;
+                            }
                         }
                         // 4. Add k_i sum_j k_j / (2m)^2 to the old cluster
-                        mod += 1.0 * n.degree() * n2.degree() / (2 * nEdges) / (2 * nEdges);
+                        // FIXME: correct this using self weights etc.
+                        mod += 1.0 * n.degree() * n2.degree() / nEdges2 / nEdges2;
                     }
                 break;
                 }
@@ -395,14 +416,6 @@ bool Network::runSmartLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxItera
 }
 
 
-Network Network::calculateReducedNetwork() {
-
-    Network redNet;
-    // TODO: implement
-    return redNet;
-}
-
-
 // Initialize network by putting each node in its own community
 void Network::createSingletons() {
     uint64_t clusterId = 0;
@@ -412,12 +425,93 @@ void Network::createSingletons() {
 }
 
 
-void Network::mergeClusters(std::vector<Cluster> clusters) {
-    // TODO
-    1;
+// the next two functions go up and down the reduced network recursion
+Network Network::calculateReducedNetwork() {
+    Network redNet;
+
+    redNet.nNodes = clusters.size();
+
+    // Make map of clusterId to reduced network ordering
+    std::map<uint64_t, uint64_t> clusterMap;
+    uint64_t i = 0;
+    for(auto c=clusters.begin(); c != clusters.end(); c++, i++) {
+        clusterMap[c->clusterId] = i;
+    }
+
+    // set edge weights
+    // in the original implementation, every reduced networks is a complete graph
+    // with possible zero weights. Here we are a bit more lenient
+    i = 0;
+    for(auto c=clusters.begin(); c != clusters.end(); c++, i++) {
+        // nodes in the reduced network are numbered 0-x
+        Node n(i);
+
+        std::vector<double> weights(clusters.size(), 0);
+        for(auto nid=c->nodes.begin(); nid != c->nodes.end(); nid++) {
+            for(auto nn = nodes[*nid].neighbors.begin(); nn != nodes[*nid].neighbors.end(); nn++) {
+                weights[clusterMap[nodes[nn->first].cluster]] += nn->second;
+            }
+            // self weight
+            weights[i] += 1;
+        }
+
+        uint64_t j = 0;
+        for(auto w=weights.begin(); w != weights.end(); w++, j++) {
+            if((*w) > 0) {
+                n.neighbors[j] = *w;
+            }
+        }
+
+        redNet.nodes[i] = n;
+    }
+    return redNet;
 }
 
 
+void Network::calcClustersFromNodes() {
+    clusters.clear();
+    std::set<uint64_t> clusterIdSet;
+    for(auto n=nodes.begin(); n != nodes.end(); n++) {
+        uint64_t cId = n->second.cluster;
+        if(clusterIdSet.find(cId) == clusterIdSet.end()) {
+            Cluster newCluster(cId);
+            newCluster.nodes.push_back(n->first);
+            clusters.push_back(newCluster);
+        } else {
+            for(auto c=clusters.begin(); c != clusters.end(); c++) {
+                if(c->clusterId == cId) {
+                    c->nodes.push_back(n->first);
+                    break;
+                }
+            }
+        }
+    }
+
+}
+
+void Network::mergeClusters(std::vector<Cluster> clustersRed) {
+
+    // iterate over the merged clusters
+    for(auto c=clustersRed.begin(); c != clustersRed.end(); c++) {
+        // everything in here will get the same clusterId, pick the first one arbitratily
+        uint64_t cIdFirst = clusters[c->nodes[0]].clusterId;
+
+        // iterate over nodes in the reduced network, i.e. clusters in the parent network
+        for(auto cId=c->nodes.begin(); cId != c->nodes.end(); cId++) {
+            // all nodes belonging to this cluster go to the new cluster
+            for(auto nId=clusters[*cId].nodes.begin(); nId != clusters[*cId].nodes.end(); nId++) {
+                // Choose the first clusterId in the list, it's equivalent
+                nodes[*nId].cluster = cIdFirst;
+            }
+        }
+    }
+    
+    // regenerate clusters from the nodes
+    calcClustersFromNodes();
+}
+
+
+// the next two functions go up and down the subnetwork business
 void Network::createFromSubnetworks(std::vector<Network> subnetworks) {
     // TODO
     1;

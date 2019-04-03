@@ -10,13 +10,13 @@ namespace py = pybind11;
 class Node {
     public:
         uint64_t nodeId;
-        std::vector<uint64_t> neighbors;
+        std::map<uint64_t, double> neighbors;
         uint64_t cluster;
 
         Node() {};
         Node(uint64_t nId) {nodeId = nId;};
         Node(uint64_t nId, uint64_t clId) {nodeId = nId; cluster = clId;};
-        Node(uint64_t nId, uint64_t clId, std::vector<uint64_t>neighIds) {nodeId = nId; cluster = clId; neighbors = neighIds;};
+        Node(uint64_t nId, uint64_t clId, std::map<uint64_t, double>neighIds) {nodeId = nId; cluster = clId; neighbors = neighIds;};
 
         uint64_t degree();
 };
@@ -34,7 +34,6 @@ class Cluster {
 class Network {
     public:
         uint64_t nNodes;
-        uint64_t nEdges;
         std::map<uint64_t, Node> nodes;
         std::vector<Cluster> clusters;
 
@@ -48,6 +47,8 @@ class Network {
             py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > nodesIn,
             py::EigenDRef<Eigen::Matrix<uint64_t, -1, 1> > communitiesOut);
 
+        double calcTwiceTotalEdges();
+        void calcClustersFromNodes();
         double calcModularity();
         std::vector<uint64_t> nodesInRadomOrder(uint32_t seed);
         uint64_t findBestCluster(uint64_t nodeId);
