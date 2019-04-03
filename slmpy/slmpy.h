@@ -4,6 +4,9 @@
 
 #include <pybind11/pybind11.h>
 #include <pybind11/eigen.h>
+#ifndef SLMPY_VERBOSE
+#define SLMPY_VERBOSE false
+#endif
 
 namespace py = pybind11;
 
@@ -18,7 +21,7 @@ class Node {
         Node(uint64_t nId, uint64_t clId) {nodeId = nId; cluster = clId;};
         Node(uint64_t nId, uint64_t clId, std::map<uint64_t, double>neighIds) {nodeId = nId; cluster = clId; neighbors = neighIds;};
 
-        uint64_t degree();
+        double degree();
 };
 
 class Cluster {

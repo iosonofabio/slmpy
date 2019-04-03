@@ -80,3 +80,21 @@ def test_call_interface_slm():
     mo.n_iterations = 1
     a = mo(algorithm='smart_local_moving')
     assert((a == a[0]).all())
+
+
+def test_call_interface_karate_louvain():
+    from slmpy import ModularityOptimzer
+
+    mo = ModularityOptimzer.load_from_edge_tsv_file(
+            'data/karate_club.tsv',
+            )
+    answer = np.loadtxt(
+            'data/karate_club_communities.tsv',
+            dtype=np.uint64,
+            )
+
+    mo.n_iterations = 1
+    a = mo(algorithm='louvain')
+    print(list(answer))
+    print(list(a))
+    assert((a == answer).all())

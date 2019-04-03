@@ -32,13 +32,10 @@ void Network::fromPython(
     }
 
     // Fill the nodes
-    std::cout << "Fillig the nodes from Python: ";
     for(uint64_t i=0; i < nNodes; i++) {
         Node n(nodesIn(i, 0), clustersIn(i, 0));
         nodes[n.nodeId] = n;
-        std::cout << n.nodeId << " ";
     }
-    std::cout << std::endl << std::flush;
 
     // Fill the edges (both directions)
     // NOTE: this assumes that the input edges are unique, not redundant
@@ -69,8 +66,21 @@ void Network::toPython(
     py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > nodesIn,
     py::EigenDRef<Eigen::Matrix<uint64_t, -1, 1> > communitiesOut) {
 
+    // rename communities as 0-N
+    uint64_t clusterIds[clusters.size()]; 
+    size_t i = 0;
+    for(auto c=clusters.begin(); c != clusters.end(); c++) {
+        clusterIds[i++] = c->clusterId;
+        std::cout << "Cluster: " << c->clusterId << " size: " << c->nodes.size() << std::endl << std::flush;
+    }
+    std::sort(clusterIds, clusterIds + clusters.size());
+    std::map<uint64_t, uint64_t> clusterRename;
+    for(size_t i=0; i != clusters.size(); i++) {
+        clusterRename[clusterIds[i]] = i;
+    }
+
     for(size_t i=0; i<nodes.size(); i++) {
-        communitiesOut(i, 0) = nodes[nodesIn(i, 0)].cluster;
+        communitiesOut(i, 0) = clusterRename[nodes[nodesIn(i, 0)].cluster];
     }
 }
 
@@ -145,6 +155,7 @@ std::vector<uint64_t> Network::nodesInRadomOrder(uint32_t seed) {
 }
 
 
+// calculate the total edge weight of the network
 double Network::calcTwiceTotalEdges() {
     double w = 0;
     for(auto n=nodes.begin(); n != nodes.end(); n++) {
@@ -212,7 +223,6 @@ uint64_t Network::findBestCluster(uint64_t nodeId) {
                     }
                 }
                 // 2. Subtract k_i sum_j k_j / (2m)^2 from the new cluster
-                // FIXME: correct this using self weights etc.
                 mod -= 1.0 * n.degree() * n2.degree() / nEdges2 / nEdges2;
             }
 
@@ -230,7 +240,6 @@ uint64_t Network::findBestCluster(uint64_t nodeId) {
                             }
                         }
                         // 4. Add k_i sum_j k_j / (2m)^2 to the old cluster
-                        // FIXME: correct this using self weights etc.
                         mod += 1.0 * n.degree() * n2.degree() / nEdges2 / nEdges2;
                     }
                 break;
@@ -249,6 +258,12 @@ uint64_t Network::findBestCluster(uint64_t nodeId) {
 
 void Network::updateCluster(uint64_t nodeId, uint64_t clusterId) {
 
+    std::cout << "updateCluster " << std::endl << std::flush;
+    for(auto c=clusters.begin(); c != clusters.end(); c++) {
+        std::cout << "Cluster: " << c->clusterId << " size: " << c->nodes.size() << std::endl << std::flush;
+    }
+
+
     // Update the node list
     Node& node = nodes[nodeId];
     uint64_t clusterIdOld = node.cluster;
@@ -256,35 +271,43 @@ void Network::updateCluster(uint64_t nodeId, uint64_t clusterId) {
 
     // Update the cluster list
     bool clusterNewFound = false;
-    bool clusterEmptyFound = false;
+    bool bothFound = 0;
     std::vector<Cluster>::iterator clusterEmpty;
-    for(auto c=clusters.begin();
-        c != clusters.end();
-        c++) {
-        if(c->clusterId == clusterId) {
-            c->nodes.push_back(nodeId);
-            clusterNewFound = true;
-        } else if(c->clusterId == clusterIdOld) {
-            for(auto n=c->nodes.begin();
-                n != c->nodes.end();
-                n++) {
+    for(auto c=clusters.begin(); c != clusters.end(); c++) {
+
+        // remove node from old cluster
+        if(c->clusterId == clusterIdOld) {
+            for(auto n=c->nodes.begin(); n != c->nodes.end(); n++) {
                 if((*n) == nodeId) {
-                    c->nodes.erase(n);
-                    if(c->nodes.size() == 0) {
-                            clusterEmpty = c;
-                            clusterEmptyFound = true;
+                    if(c->nodes.size() == 1) {
+                        // erase shifts to the new element, but there is c++
+                        c = clusters.erase(c) - 1;
+                    } else {
+                        c->nodes.erase(n);
                     }
+                    bothFound++;
                     break;
                 }
             }
+        // add node to new cluster
+        } else if(c->clusterId == clusterId) {
+            clusterNewFound = true;
+            bothFound++;
+            c->nodes.push_back(nodeId);
         }
+        if(bothFound == 2)
+            break;
     }
-    if(clusterEmptyFound)
-        clusters.erase(clusterEmpty);
+    // if the clusterId is not present, put it into a new one
     if(!clusterNewFound) {
         std::vector<uint64_t> nodesNewCluster({nodeId});
         Cluster newCluster(clusterId, nodesNewCluster);
         clusters.push_back(newCluster);
+    }
+
+    std::cout << "post updateCluster " << std::endl << std::flush;
+    for(auto c=clusters.begin(); c != clusters.end(); c++) {
+        std::cout << "Cluster: " << c->clusterId << " size: " << c->nodes.size() << std::endl << std::flush;
     }
 
 }
@@ -294,11 +317,7 @@ bool Network::runLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxIterations
     if(nNodes == 1)
         return update;
 
-    std::cout << "runLocalMovingAlgorithm, shuffling nodes" << std::endl << std::flush;
     std::vector<uint64_t> nodesShuffled = nodesInRadomOrder(randomSeed);
-    for(size_t i=0; i!=nNodes; i++)
-        std::cout << nodesShuffled[i] << " ";
-    std::cout << std::endl << std::flush;
 
     uint64_t numberStableNodes = 0;
     int i = 0;
@@ -307,39 +326,54 @@ bool Network::runLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxIterations
     bool isStable;
     int64_t iteration = 0;
     do {
+#if SLMPY_VERBOSE
         std::cout << "runLocalMovingAlgorithm, iteration " << (iteration + 1) << std::endl << std::flush;
+#endif
 
         isStable = false;
         nodeId = nodesShuffled[i];
-        std::cout << "random node id: " << nodeId << std::endl << std::flush;
 
+#if SLMPY_VERBOSE
         std::cout << "findBestCluster" << std::endl << std::flush;
+#endif
         // Find best cluster for the random node, including its own one
         bestClusterId = findBestCluster(nodeId);
+#if SLMPY_VERBOSE
         std::cout << "bestClusterId: " << bestClusterId << std::endl << std::flush;
+#endif
 
         // If the best cluster was already set, the node is stable
+#if SLMPY_VERBOSE
         std::cout << "check for stability" << std::endl << std::flush;
+#endif
         if(nodes[nodeId].cluster == bestClusterId) {
             numberStableNodes++;
             isStable = true;
         }
+#if SLMPY_VERBOSE
         std::cout << "stable: " << isStable << std::endl << std::flush;
+#endif
 
         if(!isStable) {
+#if SLMPY_VERBOSE
             std::cout << "node is unstable, updateCluster" << std::endl << std::flush;
+#endif
 
             updateCluster(nodeId, bestClusterId); 
             numberStableNodes = 1;
             update = true;
 
+#if SLMPY_VERBOSE
             std::cout << "clusters updated" << std::endl << std::flush;
+#endif
         }
 
         // cycle around the random vector
         i = (i < nodesShuffled.size() - 1) ? (i + 1) : 0;
 
+#if SLMPY_VERBOSE
         std::cout << "end of iteration, looping with i = " << i << std::endl << std::endl << std::flush;
+#endif
 
         iteration++;
         if(iteration == maxIterations)
@@ -446,15 +480,21 @@ Network Network::calculateReducedNetwork() {
         // nodes in the reduced network are numbered 0-x
         Node n(i);
 
+        // set edge weights out of this reduced node
+        // self weight emerges naturally here, because some neighbors of the
+        // parent node will be in the same cluster and that edge is added to
+        // weights[i] which is the self weight
         std::vector<double> weights(clusters.size(), 0);
         for(auto nid=c->nodes.begin(); nid != c->nodes.end(); nid++) {
             for(auto nn = nodes[*nid].neighbors.begin(); nn != nodes[*nid].neighbors.end(); nn++) {
                 weights[clusterMap[nodes[nn->first].cluster]] += nn->second;
             }
-            // self weight
-            weights[i] += 1;
         }
 
+        // set nonzero neighbors
+        // in the reduced network, a node can be its own neighbor (self-links)
+        // that happens if the parent network had self links or, in the first
+        // reduction, if there is at least one link inside the community
         uint64_t j = 0;
         for(auto w=weights.begin(); w != weights.end(); w++, j++) {
             if((*w) > 0) {
