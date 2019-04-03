@@ -48,12 +48,12 @@ class Network {
             py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > nodesIn,
             py::EigenDRef<Eigen::Matrix<uint64_t, -1, 1> > communitiesOut);
 
-        std::vector<uint64_t> nodesInRadomOrder(uint32_t seed);
-        bool runLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxIterations = -1);
-        bool runSmartLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxIterations = -1);
-
         double calcModularity();
+        std::vector<uint64_t> nodesInRadomOrder(uint32_t seed);
         uint64_t findBestCluster(uint64_t nodeId);
         void updateCluster(uint64_t nodeId, uint64_t clusterId);
 
+        bool runLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxIterations = -1);
+        bool runLouvainAlgorithm(uint32_t randomSeed);
+        bool runSmartLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxIterations = -1);
 };

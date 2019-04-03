@@ -330,7 +330,7 @@ bool Network::runLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxIterations
 }
 
 
-bool Network::runLouvain(uint32_t randomSeed) {
+bool Network::runLouvainAlgorithm(uint32_t randomSeed) {
     bool update = false;
     bool update2;
     if(nNodes == 1)
@@ -341,7 +341,7 @@ bool Network::runLouvain(uint32_t randomSeed) {
     if(clusters.size() == nodes.size())
         return update;
 
-    ReducedNetwork redNet = calculateReducedNetwork();
+    Network redNet = calculateReducedNetwork();
     redNet.createSingletons();
     update2 = redNet.runLouvainAlgorithm(randomSeed);
     if(update2) {
@@ -364,8 +364,7 @@ bool Network::runSmartLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxItera
     
     // each community -> subnetwork, reset labels and runLocalMoving inside that subnetwork
     // then set the cluster ids as of the double splitting
-    std::vector<Network> subnetworks;
-    subnetworks.create();
+    std::vector<Network> subnetworks = createSubnetworks();
     uint64_t nClusters = 0;
     for(size_t isn=0; isn != subnetworks.size(); isn++) {
         Network& subNet = subnetworks[isn];
@@ -381,10 +380,10 @@ bool Network::runSmartLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxItera
             // runs over all subnetworks
             nodes[n->first].cluster = nClusters + n->second.cluster;
         }
-        nClusters += subnetwork.clusters.size();
+        nClusters += subNet.clusters.size();
     }
 
-    ReducedNetwork redNet = calculateReducedNetwork();
+    Network redNet = calculateReducedNetwork();
     // the initial state is not each reduced node for itself, but rather
     // each subnetwork for itself. This is probably for convergence/speed reasons
     redNet.createFromSubnetworks(subnetworks);
