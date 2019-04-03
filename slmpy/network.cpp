@@ -175,83 +175,70 @@ double Network::calcTwiceTotalEdges() {
 uint64_t Network::findBestCluster(uint64_t nodeId) {
 
     // 1. Make list of neighboring clusters
-    Node node = nodes[nodeId];
+    Node& node = nodes[nodeId];
     uint64_t origClusterId = node.cluster;
-    std::map<uint64_t, double> neighborsId = node.neighbors;
-    // We want to keep the original cluster as an option, to not force change
+    std::vector<Cluster>::iterator origCluster;
+    for(auto c=clusters.begin(); c != clusters.end(); c++) {
+        if(c->clusterId == origClusterId) {
+            origCluster = c;
+        }
+    }
+    double nEdges2 = calcTwiceTotalEdges();
+
+    // Make a list of potential clusters, including the current one
     std::set<uint64_t> neighboringClusters({node.cluster});
-    for(auto n=neighborsId.begin(); n != neighborsId.end(); n++) {
+    for(auto n=node.neighbors.begin(); n != node.neighbors.end(); n++) {
         neighboringClusters.insert(nodes[n->first].cluster);
     }
 
     // 2. Compute the best cluster
-    double nEdges2 = calcTwiceTotalEdges();
-    double mod;
-    // This is ok because not moving the node has delta mod = 0 > -1
-    double modMax = -1;
-    uint64_t clusterIdMax;
-    for(auto c=clusters.begin();
-        c != clusters.end();
-        c++) {
+    // If the node stays where it is, the diff of modularity is zero
+    // this is always possible (stable node)
+    double modMax = 0;
+    uint64_t clusterIdMax = node.cluster;
+
+    // Calculate the cost of leaving your cluster once for all
+    double modLeaving = 0;
+    // lost edges
+    for(auto nei=node.neighbors.begin(); nei != node.neighbors.end(); nei++) {
+        if (nodes[nei->first].cluster == origClusterId) {
+            modLeaving -= 2 * nei->second / nEdges2;         
+        }
+    }
+    // baseline degrees
+    for(auto ni2=origCluster->nodes.begin(); ni2 != origCluster->nodes.end(); ni2++) {
+        Node& node2 = nodes[*ni2];
+        modLeaving += 1.0 * node.degree() * node2.degree() / nEdges2 / nEdges2;
+    }
+
+    for(auto c=clusters.begin(); c != clusters.end(); c++) {
         if(std::find(neighboringClusters.begin(), neighboringClusters.end(), c->clusterId) == neighboringClusters.end())
             continue;
+        if(c->clusterId == origClusterId)
+            continue;
 
-        // If the node stays where it is, the diff of modularity is zero
-        // this is always possible (stable node)
-        if(c->clusterId == origClusterId) {
-            mod = 0;
-            if(mod > modMax) {
-                modMax = mod;
-                clusterIdMax = c->clusterId;
+        // Leaving your cluster has a fixed difference in modularity
+        double mod = modLeaving;
+
+        // The cluster gains a few internal links (with nodeId)
+        // The original cluster might lose a few links
+        // vice versa with the squared sums of degrees
+        // so there are 4 terms in this evaluation
+
+        // Check additional edges into this cluster
+        for(auto nei=node.neighbors.begin(); nei != node.neighbors.end(); nei++) {
+            if(nodes[nei->first].cluster == c->clusterId) {
+                mod += 2 * nei->second / nEdges2;         
             }
-        } else {
-            // The cluster gains a few internal links (with nodeId)
-            // The original cluster might lose a few links
-            // vice versa with the squared sums of degrees
-            // so there are 4 terms in this evaluation
-            mod = 0;
-            Node& n = nodes[nodeId];
-            Node n2;
-
-            // Hypothetical adding node to the new cluster
-            for(auto ni2=c->nodes.begin(); ni2 != c->nodes.end(); ni2++) {
-                n2 = nodes[*ni2];
-
-                // 1. This can add internal edges
-                for(auto nei=neighborsId.begin(); nei != neighborsId.end(); nei++) {
-                    if(nei->first == n2.nodeId) {
-                        mod += nei->second / nEdges2;
-                        break;
-                    }
-                }
-                // 2. Subtract k_i sum_j k_j / (2m)^2 from the new cluster
-                mod -= 1.0 * n.degree() * n2.degree() / nEdges2 / nEdges2;
-            }
-
-            // Hypothetical removing the node from the original cluster
-            for(auto c2=clusters.begin(); c2 != clusters.end(); c2++) {
-                if(c2->clusterId == origClusterId) {
-                    for(auto ni2=c2->nodes.begin(); ni2 != c2->nodes.end(); ni2++) {
-                        n2 = nodes[*ni2];
-                            
-                        // 3. This can remove edges
-                        for(auto nei=neighborsId.begin(); nei != neighborsId.end(); nei++) {
-                            if(nei->first == n2.nodeId) {
-                                mod -= nei->second / nEdges2;
-                                break;
-                            }
-                        }
-                        // 4. Add k_i sum_j k_j / (2m)^2 to the old cluster
-                        mod += 1.0 * n.degree() * n2.degree() / nEdges2 / nEdges2;
-                    }
-                break;
-                }
-            }
-
-            if(mod > modMax) {
-                modMax = mod;
-                clusterIdMax = c->clusterId;
-            }
+        }
+        // Subtract k_i sum_j k_j / (2m)^2 from the new cluster
+        for(auto ni2=c->nodes.begin(); ni2 != c->nodes.end(); ni2++) {
+            Node& node2 = nodes[*ni2];
+            mod -= 1.0 * node.degree() * node2.degree() / nEdges2 / nEdges2;
+        }
+        if(mod > modMax) {
+            modMax = mod;
+            clusterIdMax = c->clusterId;
         }
     }
     return clusterIdMax;
@@ -348,6 +335,10 @@ bool Network::runLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxIterations
         std::cout << "bestClusterId: " << bestClusterId << std::endl << std::flush;
 #endif
 
+        //FIXME
+        if(nodes.size() < 10)
+            std::cout << "bestCluster: node " << nodeId << ", old cluster " << nodes[nodeId].cluster << ", new cluster " << bestClusterId << std::endl << std::flush;
+
         // If the best cluster was already set, the node is stable
 #if SLMPY_VERBOSE
         std::cout << "check for stability" << std::endl << std::flush;
@@ -397,7 +388,7 @@ bool Network::runLouvainAlgorithm(uint32_t randomSeed) {
     if(nNodes == 1)
         return update;
 
-    update |= runLocalMovingAlgorithm(randomSeed, 3 * nNodes);
+    update |= runLocalMovingAlgorithm(randomSeed);
 
     if(clusters.size() == nodes.size())
         return update;
@@ -405,6 +396,21 @@ bool Network::runLouvainAlgorithm(uint32_t randomSeed) {
     Network redNet = calculateReducedNetwork();
     redNet.createSingletons();
     update2 = redNet.runLouvainAlgorithm(randomSeed);
+
+    //check the reduced network
+    std::cout<<"Reduced after LM:"<<std::endl<<std::flush;
+    for(auto n=redNet.nodes.begin(); n != redNet.nodes.end(); n++) {
+        std::cout << n->first << ", weights: ";
+       for(auto nei=n->second.neighbors.begin(); nei != n->second.neighbors.end(); nei++) {
+           if(nei->first == n->first)
+                continue;
+           std::cout << "(" << nei->first << ", " << nei->second << ") ";
+       }
+       std::cout << std::endl << std::flush;
+    }
+    std::cout << "Updated: " << update2 << std::endl << std::flush;
+    std::cout << std::endl << std::flush;
+
     if(update2) {
         update = true;
         mergeClusters(redNet.clusters);
@@ -418,7 +424,7 @@ bool Network::runSmartLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxItera
     if(nNodes == 1)
         return update;
 
-    update |= runLocalMovingAlgorithm(randomSeed, 3 * nNodes);
+    update |= runLocalMovingAlgorithm(randomSeed);
 
     if(clusters.size() == nodes.size())
         return update;
@@ -517,7 +523,13 @@ Network Network::calculateReducedNetwork() {
     //check the reduced network
     std::cout<<"Reduced:"<<std::endl<<std::flush;
     for(auto n=redNet.nodes.begin(); n != redNet.nodes.end(); n++) {
-        std::cout << n->first << " "; 
+        std::cout << n->first << ", weights: ";
+       for(auto nei=n->second.neighbors.begin(); nei != n->second.neighbors.end(); nei++) {
+           if(nei->first == n->first)
+                continue;
+           std::cout << "(" << nei->first << ", " << nei->second << ") ";
+       }
+       std::cout << std::endl << std::flush;
     }
     std::cout << std::endl << std::flush;
 
