@@ -395,3 +395,37 @@ bool Network::runSmartLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxItera
 }
 
 
+Network Network::calculateReducedNetwork() {
+
+    Network redNet;
+    // TODO: implement
+    return redNet;
+}
+
+
+// Initialize network by putting each node in its own community
+void Network::createSingletons() {
+    uint64_t clusterId = 0;
+    for(auto n=nodes.begin(); n != nodes.end(); n++) {
+        (n->second).cluster = clusterId++;
+    }
+}
+
+
+void Network::mergeClusters(std::vector<Cluster> clusters) {
+    // TODO
+    1;
+}
+
+
+void Network::createFromSubnetworks(std::vector<Network> subnetworks) {
+    // TODO
+    1;
+}
+
+
+std::vector<Network> Network::createSubnetworks() {
+    std::vector<Network> subnetworks;
+    // TODO: implement
+    return subnetworks;
+}

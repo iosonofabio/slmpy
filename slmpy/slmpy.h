@@ -53,6 +53,12 @@ class Network {
         uint64_t findBestCluster(uint64_t nodeId);
         void updateCluster(uint64_t nodeId, uint64_t clusterId);
 
+        void createSingletons();
+        void createFromSubnetworks(std::vector<Network> subnetworks);
+        void mergeClusters(std::vector<Cluster> clusters);
+        Network calculateReducedNetwork();
+        std::vector<Network> createSubnetworks();
+
         bool runLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxIterations = -1);
         bool runLouvainAlgorithm(uint32_t randomSeed);
         bool runSmartLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxIterations = -1);

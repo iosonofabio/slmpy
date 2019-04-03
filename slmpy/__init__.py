@@ -1,5 +1,5 @@
 import numpy as np
-from ._slmpy import smart_local_moving, local_moving
+from ._slmpy import smart_local_moving, local_moving, louvain
 
 
 
@@ -66,6 +66,14 @@ class ModularityOptimzer:
                     self.communities,
                     random_seed,
                     self.n_iterations,
+                    )
+        elif algorithm == 'louvain':
+            louvain(
+                    communities_out,
+                    self.edges,
+                    self.nodes,
+                    self.communities,
+                    random_seed,
                     )
         elif algorithm == 'local_moving':
             local_moving(
