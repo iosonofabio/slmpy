@@ -13,7 +13,8 @@
 void Network::fromPython(
     py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 2> > edgesIn,
     py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > nodesIn,
-    py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > clustersIn) {
+    py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > clustersIn,
+    py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > fixedNodesIn) {
 
     // Set number of nodes and edges
     nNodes = nodesIn.rows();
@@ -33,8 +34,12 @@ void Network::fromPython(
 
     // Fill the nodes
     for(uint64_t i=0; i < nNodes; i++) {
-        Node n(nodesIn(i, 0), clustersIn(i, 0));
-        nodes[n.nodeId] = n;
+        nodes[n.nodeId] = Node(nodesIn(i, 0), clustersIn(i, 0));
+    }
+
+    // Fill the fixed nodes
+    for(uint64_t i=0; i < fixedNodesIn.rows(); i++) {
+        fixedNotes.insert(fixedNodesIn(i, 0));
     }
 
     // Fill the edges (both directions)
@@ -167,6 +172,132 @@ double Network::calcTwiceTotalEdges() {
     }
     return w;
 }
+
+
+// Initialize network by putting each node in its own community
+void Network::createSingletons() {
+    uint64_t clusterId = 0;
+    for(auto n=nodes.begin(); n != nodes.end(); n++) {
+        (n->second).cluster = clusterId++;
+    }
+    calcClustersFromNodes();
+}
+
+
+// the next two functions go up and down the reduced network recursion
+Network Network::calculateReducedNetwork() {
+
+    std::cout<<"Reducing network"<<std::endl<<std::flush;
+
+    Network redNet;
+    redNet.nNodes = clusters.size();
+
+    // Make map of clusterId to reduced network ordering
+    std::map<uint64_t, uint64_t> clusterMap;
+    uint64_t i = 0;
+    for(auto c=clusters.begin(); c != clusters.end(); c++, i++) {
+        clusterMap[c->clusterId] = i;
+    }
+
+    // set edge weights
+    // in the original implementation, every reduced networks is a complete graph
+    // with possible zero weights. Here we are a bit more lenient
+    i = 0;
+    for(auto c=clusters.begin(); c != clusters.end(); c++, i++) {
+        // nodes in the reduced network are numbered 0-x
+        Node n(i);
+
+        // set edge weights out of this reduced node
+        // self weight emerges naturally here, because some neighbors of the
+        // parent node will be in the same cluster and that edge is added to
+        // weights[i] which is the self weight
+        std::vector<double> weights(clusters.size(), 0);
+        for(auto nid=c->nodes.begin(); nid != c->nodes.end(); nid++) {
+            for(auto nn = nodes[*nid].neighbors.begin(); nn != nodes[*nid].neighbors.end(); nn++) {
+                weights[clusterMap[nodes[nn->first].cluster]] += nn->second;
+            }
+        }
+
+        // set nonzero neighbors
+        // in the reduced network, a node can be its own neighbor (self-links)
+        // that happens if the parent network had self links or, in the first
+        // reduction, if there is at least one link inside the community
+        uint64_t j = 0;
+        for(auto w=weights.begin(); w != weights.end(); w++, j++) {
+            if((*w) > 0) {
+                n.neighbors[j] = *w;
+            }
+        }
+
+        redNet.nodes[i] = n;
+    }
+
+    //check the reduced network
+    std::cout<<"Reduced:"<<std::endl<<std::flush;
+    for(auto n=redNet.nodes.begin(); n != redNet.nodes.end(); n++) {
+        std::cout << n->first << ", weights: ";
+       for(auto nei=n->second.neighbors.begin(); nei != n->second.neighbors.end(); nei++) {
+           if(nei->first == n->first)
+                continue;
+           std::cout << "(" << nei->first << ", " << nei->second << ") ";
+       }
+       std::cout << std::endl << std::flush;
+    }
+    std::cout << std::endl << std::flush;
+
+
+    return redNet;
+}
+
+
+void Network::calcClustersFromNodes() {
+    clusters.clear();
+    std::set<uint64_t> clusterIdSet;
+    for(auto n=nodes.begin(); n != nodes.end(); n++) {
+        uint64_t cId = n->second.cluster;
+        if(clusterIdSet.find(cId) == clusterIdSet.end()) {
+            Cluster newCluster(cId);
+            newCluster.nodes.push_back(n->first);
+            clusters.push_back(newCluster);
+            clusterIdSet.insert(cId);
+        } else {
+            for(auto c=clusters.begin(); c != clusters.end(); c++) {
+                if(c->clusterId == cId) {
+                    c->nodes.push_back(n->first);
+                    break;
+                }
+            }
+        }
+    }
+
+}
+
+// propagate the clusters from a reduced network up the chain
+void Network::mergeClusters(std::vector<Cluster> clustersRed) {
+
+    // iterate over the merged clusters
+    uint64_t nClu = 0;
+    for(auto c=clustersRed.begin(); c != clustersRed.end(); c++, nClu++) {
+        // all nodes in here belong to the same community
+        // however, each of c->nodes is a whole set of nodes in the parent network
+        // the c->nodes[X].cluster corresponds to the X-th element in the parent
+        // cluster list, that's the way it was set up when reducing
+        for(auto cId=c->nodes.begin(); cId != c->nodes.end(); cId++) {
+            for(auto nId=clusters[*cId].nodes.begin(); nId != clusters[*cId].nodes.end(); nId++) {
+                nodes[*nId].cluster = nClu;
+            }
+        }
+    }
+    
+    // regenerate clusters from the nodes
+    calcClustersFromNodes();
+
+    std::cout << "Clusters after merging: " << std::endl << std::flush;
+    for(auto c=clusters.begin(); c != clusters.end(); c++) {
+        std::cout << "Cluster: " << c->clusterId << " size: " << c->nodes.size() << std::endl << std::flush;
+    }
+}
+
 
 // When you flip a node, figure what cluster flip increases the modularity most
 // The algorithm has two parts:
@@ -333,8 +464,13 @@ bool Network::runLocalMovingAlgorithm(uint32_t randomSeed) {
 #if SLMPY_VERBOSE
         std::cout << "findBestCluster" << std::endl << std::flush;
 #endif
-        // Find best cluster for the random node, including its own one
-        bestClusterId = findBestCluster(nodeId);
+        // fixed nodes never change
+        if(fixedNodes.find(nodeId) != fixedNodes.end()) {
+            bestClusterId = nodes[nodeId].cluster;
+        } else {
+            // Find best cluster for the random node, including its own one
+            bestClusterId = findBestCluster(nodeId);
+        }
 #if SLMPY_VERBOSE
         std::cout << "bestClusterId: " << bestClusterId << std::endl << std::flush;
 #endif
@@ -464,129 +600,7 @@ bool Network::runSmartLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxItera
 }
 
 
-// Initialize network by putting each node in its own community
-void Network::createSingletons() {
-    uint64_t clusterId = 0;
-    for(auto n=nodes.begin(); n != nodes.end(); n++) {
-        (n->second).cluster = clusterId++;
-    }
-    calcClustersFromNodes();
-}
 
-
-// the next two functions go up and down the reduced network recursion
-Network Network::calculateReducedNetwork() {
-
-    std::cout<<"Reducing network"<<std::endl<<std::flush;
-
-    Network redNet;
-    redNet.nNodes = clusters.size();
-
-    // Make map of clusterId to reduced network ordering
-    std::map<uint64_t, uint64_t> clusterMap;
-    uint64_t i = 0;
-    for(auto c=clusters.begin(); c != clusters.end(); c++, i++) {
-        clusterMap[c->clusterId] = i;
-    }
-
-    // set edge weights
-    // in the original implementation, every reduced networks is a complete graph
-    // with possible zero weights. Here we are a bit more lenient
-    i = 0;
-    for(auto c=clusters.begin(); c != clusters.end(); c++, i++) {
-        // nodes in the reduced network are numbered 0-x
-        Node n(i);
-
-        // set edge weights out of this reduced node
-        // self weight emerges naturally here, because some neighbors of the
-        // parent node will be in the same cluster and that edge is added to
-        // weights[i] which is the self weight
-        std::vector<double> weights(clusters.size(), 0);
-        for(auto nid=c->nodes.begin(); nid != c->nodes.end(); nid++) {
-            for(auto nn = nodes[*nid].neighbors.begin(); nn != nodes[*nid].neighbors.end(); nn++) {
-                weights[clusterMap[nodes[nn->first].cluster]] += nn->second;
-            }
-        }
-
-        // set nonzero neighbors
-        // in the reduced network, a node can be its own neighbor (self-links)
-        // that happens if the parent network had self links or, in the first
-        // reduction, if there is at least one link inside the community
-        uint64_t j = 0;
-        for(auto w=weights.begin(); w != weights.end(); w++, j++) {
-            if((*w) > 0) {
-                n.neighbors[j] = *w;
-            }
-        }
-
-        redNet.nodes[i] = n;
-    }
-
-    //check the reduced network
-    std::cout<<"Reduced:"<<std::endl<<std::flush;
-    for(auto n=redNet.nodes.begin(); n != redNet.nodes.end(); n++) {
-        std::cout << n->first << ", weights: ";
-       for(auto nei=n->second.neighbors.begin(); nei != n->second.neighbors.end(); nei++) {
-           if(nei->first == n->first)
-                continue;
-           std::cout << "(" << nei->first << ", " << nei->second << ") ";
-       }
-       std::cout << std::endl << std::flush;
-    }
-    std::cout << std::endl << std::flush;
-
-
-    return redNet;
-}
-
-
-void Network::calcClustersFromNodes() {
-    clusters.clear();
-    std::set<uint64_t> clusterIdSet;
-    for(auto n=nodes.begin(); n != nodes.end(); n++) {
-        uint64_t cId = n->second.cluster;
-        if(clusterIdSet.find(cId) == clusterIdSet.end()) {
-            Cluster newCluster(cId);
-            newCluster.nodes.push_back(n->first);
-            clusters.push_back(newCluster);
-            clusterIdSet.insert(cId);
-        } else {
-            for(auto c=clusters.begin(); c != clusters.end(); c++) {
-                if(c->clusterId == cId) {
-                    c->nodes.push_back(n->first);
-                    break;
-                }
-            }
-        }
-    }
-
-}
-
-// propagate the clusters from a reduced network up the chain
-void Network::mergeClusters(std::vector<Cluster> clustersRed) {
-
-    // iterate over the merged clusters
-    uint64_t nClu = 0;
-    for(auto c=clustersRed.begin(); c != clustersRed.end(); c++, nClu++) {
-        // all nodes in here belong to the same community
-        // however, each of c->nodes is a whole set of nodes in the parent network
-        // the c->nodes[X].cluster corresponds to the X-th element in the parent
-        // cluster list, that's the way it was set up when reducing
-        for(auto cId=c->nodes.begin(); cId != c->nodes.end(); cId++) {
-            for(auto nId=clusters[*cId].nodes.begin(); nId != clusters[*cId].nodes.end(); nId++) {
-                nodes[*nId].cluster = nClu;
-            }
-        }
-    }
-    
-    // regenerate clusters from the nodes
-    calcClustersFromNodes();
-
-    std::cout << "Clusters after merging: " << std::endl << std::flush;
-    for(auto c=clusters.begin(); c != clusters.end(); c++) {
-        std::cout << "Cluster: " << c->clusterId << " size: " << c->nodes.size() << std::endl << std::flush;
-    }
-}
 
 
 // the next two functions go up and down the subnetwork business

@@ -39,6 +39,7 @@ class Network {
         uint64_t nNodes;
         std::map<uint64_t, Node> nodes;
         std::vector<Cluster> clusters;
+        std::set<uint64_t> fixedNodes;
 
         Network() {};
 
