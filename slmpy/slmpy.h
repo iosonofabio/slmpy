@@ -63,7 +63,7 @@ class Network {
         Network calculateReducedNetwork();
         std::vector<Network> createSubnetworks();
 
-        bool runLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxIterations = -1);
+        bool runLocalMovingAlgorithm(uint32_t randomSeed);
         bool runLouvainAlgorithm(uint32_t randomSeed);
         bool runSmartLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxIterations = -1);
 };

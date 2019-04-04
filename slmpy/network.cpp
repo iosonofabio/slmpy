@@ -73,7 +73,7 @@ void Network::toPython(
         // std::sort uses the first element, ascending
         std::pair<int64_t, uint64_t> cl(-(c->nodes.size()), c->clusterId);
         clusterIds.push_back(cl);
-        std::cout << "Cluster: " << c->clusterId << " size: " << c->nodes.size() << std::endl << std::flush;
+        //std::cout << "Cluster: " << c->clusterId << " size: " << c->nodes.size() << std::endl << std::flush;
     }
     std::sort(clusterIds.begin(), clusterIds.end());
     std::map<uint64_t, uint64_t> clusterRename;
@@ -192,6 +192,7 @@ uint64_t Network::findBestCluster(uint64_t nodeId) {
     }
 
     // 2. Compute the best cluster
+    // NOTE: all costs are calculated * nEdges2, as it makes no difference for the argmax
     // If the node stays where it is, the diff of modularity is zero
     // this is always possible (stable node)
     double modMax = 0;
@@ -199,16 +200,16 @@ uint64_t Network::findBestCluster(uint64_t nodeId) {
 
     // Calculate the cost of leaving your cluster once for all
     double modLeaving = 0;
-    // lost edges
+    // lost edges (you lose the self-edge)
     for(auto nei=node.neighbors.begin(); nei != node.neighbors.end(); nei++) {
         if (nodes[nei->first].cluster == origClusterId) {
-            modLeaving -= 2 * nei->second / nEdges2;         
+            modLeaving -= nei->second;         
         }
     }
     // baseline degrees
+    double nodeDeg = node.degree();
     for(auto ni2=origCluster->nodes.begin(); ni2 != origCluster->nodes.end(); ni2++) {
-        Node& node2 = nodes[*ni2];
-        modLeaving += 1.0 * node.degree() * node2.degree() / nEdges2 / nEdges2;
+        modLeaving += nodeDeg * nodes[*ni2].degree() / nEdges2;
     }
 
     for(auto c=clusters.begin(); c != clusters.end(); c++) {
@@ -226,16 +227,19 @@ uint64_t Network::findBestCluster(uint64_t nodeId) {
         // so there are 4 terms in this evaluation
 
         // Check additional edges into this cluster
+        // the self-edge comes back
         for(auto nei=node.neighbors.begin(); nei != node.neighbors.end(); nei++) {
-            if(nodes[nei->first].cluster == c->clusterId) {
-                mod += 2 * nei->second / nEdges2;         
+            if((nodes[nei->first].cluster == c->clusterId) || (nei->first == nodeId)){
+                mod += nei->second;         
             }
         }
         // Subtract k_i sum_j k_j / (2m)^2 from the new cluster
         for(auto ni2=c->nodes.begin(); ni2 != c->nodes.end(); ni2++) {
-            Node& node2 = nodes[*ni2];
-            mod -= 1.0 * node.degree() * node2.degree() / nEdges2 / nEdges2;
+            mod -= nodeDeg * nodes[*ni2].degree() / nEdges2;
         }
+        // Subtract your own weight, since you belong to the new cluster now
+        mod -= nodeDeg * nodeDeg / nEdges2;
+
         if(mod > modMax) {
             modMax = mod;
             clusterIdMax = c->clusterId;
@@ -262,7 +266,7 @@ void Network::updateCluster(uint64_t nodeId, uint64_t clusterId) {
 
     // Update the cluster list
     bool clusterNewFound = false;
-    bool bothFound = 0;
+    int bothFound = 0;
     std::vector<Cluster>::iterator clusterEmpty;
     for(auto c=clusters.begin(); c != clusters.end(); c++) {
 
@@ -305,7 +309,7 @@ void Network::updateCluster(uint64_t nodeId, uint64_t clusterId) {
 
 }
 
-bool Network::runLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxIterations) {
+bool Network::runLocalMovingAlgorithm(uint32_t randomSeed) {
     bool update = false;
     if(nNodes == 1)
         return update;
@@ -373,8 +377,6 @@ bool Network::runLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxIterations
 #endif
 
         iteration++;
-        if(iteration == maxIterations)
-            break;
     
     } while(numberStableNodes < nNodes);
 
@@ -547,6 +549,7 @@ void Network::calcClustersFromNodes() {
             Cluster newCluster(cId);
             newCluster.nodes.push_back(n->first);
             clusters.push_back(newCluster);
+            clusterIdSet.insert(cId);
         } else {
             for(auto c=clusters.begin(); c != clusters.end(); c++) {
                 if(c->clusterId == cId) {
@@ -559,25 +562,30 @@ void Network::calcClustersFromNodes() {
 
 }
 
+// propagate the clusters from a reduced network up the chain
 void Network::mergeClusters(std::vector<Cluster> clustersRed) {
 
     // iterate over the merged clusters
-    for(auto c=clustersRed.begin(); c != clustersRed.end(); c++) {
-        // everything in here will get the same clusterId, pick the first one arbitratily
-        uint64_t cIdFirst = clusters[c->nodes[0]].clusterId;
-
-        // iterate over nodes in the reduced network, i.e. clusters in the parent network
+    uint64_t nClu = 0;
+    for(auto c=clustersRed.begin(); c != clustersRed.end(); c++, nClu++) {
+        // all nodes in here belong to the same community
+        // however, each of c->nodes is a whole set of nodes in the parent network
+        // the c->nodes[X].cluster corresponds to the X-th element in the parent
+        // cluster list, that's the way it was set up when reducing
         for(auto cId=c->nodes.begin(); cId != c->nodes.end(); cId++) {
-            // all nodes belonging to this cluster go to the new cluster
             for(auto nId=clusters[*cId].nodes.begin(); nId != clusters[*cId].nodes.end(); nId++) {
-                // Choose the first clusterId in the list, it's equivalent
-                nodes[*nId].cluster = cIdFirst;
+                nodes[*nId].cluster = nClu;
             }
         }
     }
     
     // regenerate clusters from the nodes
     calcClustersFromNodes();
+
+    std::cout << "Clusters after merging: " << std::endl << std::flush;
+    for(auto c=clusters.begin(); c != clusters.end(); c++) {
+        std::cout << "Cluster: " << c->clusterId << " size: " << c->nodes.size() << std::endl << std::flush;
+    }
 }
 
 

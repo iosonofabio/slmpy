@@ -6,8 +6,8 @@
 // edges are weighted, so the degree of a node is the
 // sum of the edge weights
 double Node::degree() {
-    double deg = 0;
+    double w = 0;
     for(auto n=neighbors.begin(); n != neighbors.end(); n++)
-        deg += n->second;
-    return deg;
+        w += n->second;
+    return w;
 }
