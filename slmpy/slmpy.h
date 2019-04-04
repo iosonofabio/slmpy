@@ -41,6 +41,8 @@ class Network {
         std::vector<Cluster> clusters;
         std::set<uint64_t> fixedNodes;
         double twiceTotalEdges;
+        bool isSubnetwork = false;
+        double twiceTotalEdgesGlobal;
 
         Network() {};
 
@@ -61,7 +63,7 @@ class Network {
         void updateCluster(uint64_t nodeId, uint64_t clusterId);
 
         void createSingletons();
-        void createFromSubnetworks(std::vector<Network> subnetworks);
+        void createFromSubnetworks(std::map<uint64_t, uint64_t> clusterToSubnetwork);
         void mergeClusters(std::vector<Cluster> clusters);
         Network calculateReducedNetwork();
         std::vector<Network> createSubnetworks();
@@ -70,6 +72,4 @@ class Network {
         bool runLouvainAlgorithm(uint32_t randomSeed);
         bool runSmartLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxIterations = -1);
 
-        bool isSubnetwork = false;
-        Network* globalNetwork;
 };

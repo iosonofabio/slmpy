@@ -208,8 +208,8 @@ Network Network::calculateReducedNetwork() {
     // with possible zero weights. Here we are a bit more lenient
     i = 0;
     for(auto c=clusters.begin(); c != clusters.end(); c++, i++) {
-        // nodes in the reduced network are numbered 0-x
-        Node n(i);
+        // nodes in the reduced network are initilized to their clusterId
+        Node n(c->clusterId);
 
         // set edge weights out of this reduced node
         // self weight emerges naturally here, because some neighbors of the
@@ -238,6 +238,7 @@ Network Network::calculateReducedNetwork() {
             }
         }
 
+        // nodes in the reduced network are numbered 0-x
         redNet.nodes[i] = n;
     }
 
@@ -347,9 +348,13 @@ uint64_t Network::findBestCluster(uint64_t nodeId) {
         }
     }
     // baseline degrees
-    double nodeDeg = node.degree;
     for(auto ni2=origCluster->nodes.begin(); ni2 != origCluster->nodes.end(); ni2++) {
-        modLeaving += nodeDeg * nodes[*ni2].degree / twiceTotalEdges;
+        // subnetworks use global degrees
+        if(isSubnetwork) {
+            modLeaving += node.degreeGlobal * nodes[*ni2].degreeGlobal / twiceTotalEdgesGlobal;
+        } else {
+            modLeaving += node.degree * nodes[*ni2].degree / twiceTotalEdges;
+        }
     }
 
     for(auto c=clusters.begin(); c != clusters.end(); c++) {
@@ -375,10 +380,15 @@ uint64_t Network::findBestCluster(uint64_t nodeId) {
         }
         // Subtract k_i sum_j k_j / (2m)^2 from the new cluster
         for(auto ni2=c->nodes.begin(); ni2 != c->nodes.end(); ni2++) {
-            mod -= nodeDeg * nodes[*ni2].degree / twiceTotalEdges;
+            // subnetworks use global weights
+            if(isSubnetwork) {
+                mod -= node.degreeGlobal * nodes[*ni2].degreeGlobal / twiceTotalEdgesGlobal;
+            } else {
+                mod -= node.degree * nodes[*ni2].degree / twiceTotalEdges;
+            }
         }
         // Subtract your own weight, since you belong to the new cluster now
-        mod -= nodeDeg * nodeDeg / twiceTotalEdges;
+        mod -= node.degree * node.degree / twiceTotalEdges;
 
         if(mod > modMax) {
             modMax = mod;
@@ -580,10 +590,29 @@ bool Network::runSmartLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxItera
     // then set the cluster ids as of the double splitting
     std::vector<Network> subnetworks = createSubnetworks();
     uint64_t nClusters = 0;
+    std::map<uint64_t, uint64_t> clusterToSubnetwork;
     for(size_t isn=0; isn != subnetworks.size(); isn++) {
         Network& subNet = subnetworks[isn];
         // reset labels
         subNet.createSingletons();
+
+        // set global degrees
+        // FIXME: it is unclear from the paper whether global degrees
+        // percolate up to the very top or stop at the parent. This
+        // is relevant for subnetworks of reduced networks
+        if(isSubnetwork) {
+            subNet.twiceTotalEdgesGlobal = twiceTotalEdgesGlobal;
+        } else {
+            subNet.twiceTotalEdgesGlobal = twiceTotalEdges;
+        }
+        for(auto n=subNet.nodes.begin(); n!=subNet.nodes.end(); n++) {
+            if(isSubnetwork) {
+                n->second.degreeGlobal = nodes[n->first].degreeGlobal;
+            } else {
+                n->second.degreeGlobal = nodes[n->first].degree;
+            }
+        }
+
         // cluster within subnetwork
         subNet.runLocalMovingAlgorithm(randomSeed);
 
@@ -594,13 +623,20 @@ bool Network::runSmartLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxItera
             // runs over all subnetworks
             nodes[n->first].cluster = nClusters + n->second.cluster;
         }
-        nClusters += subNet.clusters.size();
+        // make a list of which of the final clusters/reduced nodes belongs
+        // to which subnetwork for later initialization of the reduced network
+        for(auto c=subNet.clusters.begin(); c != subNet.clusters.end(); c++) {
+            clusterToSubnetwork[nClusters++] = isn; 
+        }
     }
+
+    // recalculate clusters
+    calcClustersFromNodes();
 
     Network redNet = calculateReducedNetwork();
     // the initial state is not each reduced node for itself, but rather
     // each subnetwork for itself. This is probably for convergence/speed reasons
-    redNet.createFromSubnetworks(subnetworks);
+    redNet.createFromSubnetworks(clusterToSubnetwork);
 
     update |= redNet.runSmartLocalMovingAlgorithm(randomSeed, maxIterations);
     mergeClusters(redNet.clusters);
@@ -611,11 +647,17 @@ bool Network::runSmartLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxItera
 
 
 // the next two functions go up and down the subnetwork business
-void Network::createFromSubnetworks(std::vector<Network> subnetworks) {
-    // TODO
-    1;
-}
+void Network::createFromSubnetworks(std::map<uint64_t, uint64_t> clusterToSubnetwork) {
+    // instead of setting each (reduced) node to its own community
+    // we give them the same cluster if they belong to the same subnetwork
+    for(auto n=nodes.begin(); n != nodes.end(); n++) {
+        // reduced network initialization puts every reduced node to the clusterId they came from
+        n->second.cluster = clusterToSubnetwork[n->second.cluster];
+    }
 
+    calcClustersFromNodes();
+    calcDegreesAndTwiceTotalEdges();
+}
 
 std::vector<Network> Network::createSubnetworks() {
     std::vector<Network> subnetworks;
@@ -623,9 +665,6 @@ std::vector<Network> Network::createSubnetworks() {
     for(auto c=clusters.begin(); c != clusters.end(); c++) {
         Network subNet;
         subNet.isSubnetwork = true;
-        subNet.globalNetwork = this;
     }
-
-    // TODO: implement
     return subnetworks;
 }
