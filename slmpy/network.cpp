@@ -26,8 +26,8 @@ void Network::fromPython(
 
     // Fill the nodes
     for(int i=0; i < nodesIn.rows(); i++) {
-        Node n(nodesIn(i, 0), clustersIn(i, 0));
-        nodes[n.nodeId] = n;
+        Node n(clustersIn(i, 0));
+        nodes[nodesIn(i, 0)] = n;
     }
 
     // Count the clusters
@@ -64,6 +64,7 @@ void Network::fromPython(
         nodes[tmp2].neighbors[tmp] = 1;
     }
 
+    calcDegreesAndTwiceTotalEdges();
 }
 
 
@@ -113,38 +114,38 @@ void Network::toPython(
 ////  Bottomline is we should calculate the following useful quantities:
 ////   the number of edges within the community
 ////   the summed degree of the community
-double Network::calcModularity() {
-    double mod = 0;
-
-    double nEdges2 = calcTwiceTotalEdges(); 
-
-    for(auto c=clusters.begin(); c != clusters.end(); c++) {
-        // Calculate twice the number of edges within the community
-        for(auto n=c->nodes.begin(); n != c->nodes.end(); n++) {
-            Node& node = nodes[*n];
-            for(auto neiId=node.neighbors.begin(); neiId != node.neighbors.end(); neiId++) {
-                for(auto n2=c->nodes.begin(); n2 != c->nodes.end(); n2++) {
-                    if((*n2) == (neiId->first)) {
-                        mod += 1;
-                        break;
-                    }
-                }
-            }
-        }
-
-        // Subtract the summed degrees
-        double sumDeg = 0;
-        for(auto n=c->nodes.begin(); n != c->nodes.end(); n++) {
-                sumDeg += nodes[*n].degree();
-        }
-        mod -= sumDeg * sumDeg / nEdges2;
-    }
-
-    // NOTE: this is useless for the optimization, but oh so cheap
-    mod /= nEdges2;
-
-    return mod;
-}
+//double Network::calcModularity() {
+//    double mod = 0;
+//
+//    calcDegreesAndTwiceTotalEdges(); 
+//
+//    for(auto c=clusters.begin(); c != clusters.end(); c++) {
+//        // Calculate twice the number of edges within the community
+//        for(auto n=c->nodes.begin(); n != c->nodes.end(); n++) {
+//            Node& node = nodes[*n];
+//            for(auto neiId=node.neighbors.begin(); neiId != node.neighbors.end(); neiId++) {
+//                for(auto n2=c->nodes.begin(); n2 != c->nodes.end(); n2++) {
+//                    if((*n2) == (neiId->first)) {
+//                        mod += 1;
+//                        break;
+//                    }
+//                }
+//            }
+//        }
+//
+//        // Subtract the summed degrees
+//        double sumDeg = 0;
+//        for(auto n=c->nodes.begin(); n != c->nodes.end(); n++) {
+//                sumDeg += nodes[*n].degree;
+//        }
+//        mod -= sumDeg * sumDeg / twiceTotalEdges;
+//    }
+//
+//    // NOTE: this is useless for the optimization, but oh so cheap
+//    mod /= twiceTotalEdges;
+//
+//    return mod;
+//}
 
 
 // shuffle order of nodes that get probes by the local moving heuristic
@@ -154,7 +155,7 @@ std::vector<uint64_t> Network::nodesInRadomOrder(uint32_t seed) {
 
     size_t i = 0;
     for(auto n=nodes.begin(); n != nodes.end(); n++) {
-        randomOrder[i++] = (n->second).nodeId;
+        randomOrder[i++] = n->first;
     }
 
     std::random_shuffle(randomOrder.begin(), randomOrder.end());
@@ -163,14 +164,16 @@ std::vector<uint64_t> Network::nodesInRadomOrder(uint32_t seed) {
 
 
 // calculate the total edge weight of the network
-double Network::calcTwiceTotalEdges() {
-    double w = 0;
+void Network::calcDegreesAndTwiceTotalEdges() {
+    twiceTotalEdges = 0;
     for(auto n=nodes.begin(); n != nodes.end(); n++) {
+        double w = 0;
         for(auto nei = n->second.neighbors.begin(); nei != n->second.neighbors.end(); nei++) {
             w += nei->second;
         }
+        n->second.degree = w;
+        twiceTotalEdges += w;
     }
-    return w;
 }
 
 
@@ -181,6 +184,7 @@ void Network::createSingletons() {
         (n->second).cluster = clusterId++;
     }
     calcClustersFromNodes();
+    calcDegreesAndTwiceTotalEdges();
 }
 
 
@@ -320,7 +324,6 @@ uint64_t Network::findBestCluster(uint64_t nodeId) {
             origCluster = c;
         }
     }
-    double nEdges2 = calcTwiceTotalEdges();
 
     // Make a list of potential clusters, including the current one
     std::set<uint64_t> neighboringClusters({node.cluster});
@@ -329,7 +332,7 @@ uint64_t Network::findBestCluster(uint64_t nodeId) {
     }
 
     // 2. Compute the best cluster
-    // NOTE: all costs are calculated * nEdges2, as it makes no difference for the argmax
+    // NOTE: all costs are calculated * 2m, as it makes no difference for the argmax
     // If the node stays where it is, the diff of modularity is zero
     // this is always possible (stable node)
     double modMax = 0;
@@ -344,9 +347,9 @@ uint64_t Network::findBestCluster(uint64_t nodeId) {
         }
     }
     // baseline degrees
-    double nodeDeg = node.degree();
+    double nodeDeg = node.degree;
     for(auto ni2=origCluster->nodes.begin(); ni2 != origCluster->nodes.end(); ni2++) {
-        modLeaving += nodeDeg * nodes[*ni2].degree() / nEdges2;
+        modLeaving += nodeDeg * nodes[*ni2].degree / twiceTotalEdges;
     }
 
     for(auto c=clusters.begin(); c != clusters.end(); c++) {
@@ -372,10 +375,10 @@ uint64_t Network::findBestCluster(uint64_t nodeId) {
         }
         // Subtract k_i sum_j k_j / (2m)^2 from the new cluster
         for(auto ni2=c->nodes.begin(); ni2 != c->nodes.end(); ni2++) {
-            mod -= nodeDeg * nodes[*ni2].degree() / nEdges2;
+            mod -= nodeDeg * nodes[*ni2].degree / twiceTotalEdges;
         }
         // Subtract your own weight, since you belong to the new cluster now
-        mod -= nodeDeg * nodeDeg / nEdges2;
+        mod -= nodeDeg * nodeDeg / twiceTotalEdges;
 
         if(mod > modMax) {
             modMax = mod;
@@ -607,8 +610,6 @@ bool Network::runSmartLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxItera
 
 
 
-
-
 // the next two functions go up and down the subnetwork business
 void Network::createFromSubnetworks(std::vector<Network> subnetworks) {
     // TODO
@@ -618,6 +619,13 @@ void Network::createFromSubnetworks(std::vector<Network> subnetworks) {
 
 std::vector<Network> Network::createSubnetworks() {
     std::vector<Network> subnetworks;
+
+    for(auto c=clusters.begin(); c != clusters.end(); c++) {
+        Network subNet;
+        subNet.isSubnetwork = true;
+        subNet.globalNetwork = this;
+    }
+
     // TODO: implement
     return subnetworks;
 }

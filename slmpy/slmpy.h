@@ -13,16 +13,15 @@ namespace py = pybind11;
 
 class Node {
     public:
-        uint64_t nodeId;
         std::map<uint64_t, double> neighbors;
         uint64_t cluster;
+        double degree;
+        double degreeGlobal;
 
         Node() {};
-        Node(uint64_t nId) {nodeId = nId;};
-        Node(uint64_t nId, uint64_t clId) {nodeId = nId; cluster = clId;};
-        Node(uint64_t nId, uint64_t clId, std::map<uint64_t, double>neighIds) {nodeId = nId; cluster = clId; neighbors = neighIds;};
+        Node(uint64_t clId) {cluster = clId;};
+        Node(uint64_t clId, std::map<uint64_t, double>neighIds) {cluster = clId; neighbors = neighIds;};
 
-        double degree();
 };
 
 class Cluster {
@@ -41,6 +40,7 @@ class Network {
         std::map<uint64_t, Node> nodes;
         std::vector<Cluster> clusters;
         std::set<uint64_t> fixedNodes;
+        double twiceTotalEdges;
 
         Network() {};
 
@@ -53,9 +53,9 @@ class Network {
             py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > nodesIn,
             py::EigenDRef<Eigen::Matrix<uint64_t, -1, 1> > communitiesOut);
 
-        double calcTwiceTotalEdges();
+        void calcDegreesAndTwiceTotalEdges();
         void calcClustersFromNodes();
-        double calcModularity();
+        //double calcModularity();
         std::vector<uint64_t> nodesInRadomOrder(uint32_t seed);
         uint64_t findBestCluster(uint64_t nodeId);
         void updateCluster(uint64_t nodeId, uint64_t clusterId);
@@ -69,4 +69,7 @@ class Network {
         bool runLocalMovingAlgorithm(uint32_t randomSeed);
         bool runLouvainAlgorithm(uint32_t randomSeed);
         bool runSmartLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxIterations = -1);
+
+        bool isSubnetwork = false;
+        Network* globalNetwork;
 };
