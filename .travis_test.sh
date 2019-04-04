@@ -9,7 +9,8 @@ if [ "$TRAVIS_OS_NAME" == 'osx' ]; then
   PYTEST="$HOME/miniconda/bin/pytest"
 else
   PYTHON=${PYTHON:-python}
-  PYTEST=${PYTEST:-"pytest -rxXs --cov=slmpy/"}
+  #PYTEST=${PYTEST:-"pytest -rxXs --cov=slmpy/"}
+  PYTEST=${PYTEST:-"pytest -rxXs"}
 fi
 
 echo "python: ${PYTHON}"
