@@ -14,6 +14,8 @@ else
 fi
 
 echo "python: ${PYTHON}"
+echo "which pytest:"
+echo $(which pytest)
 
 echo 'Running pytests...'
 # LOCAL TESTING:
