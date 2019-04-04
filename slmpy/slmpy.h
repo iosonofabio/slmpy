@@ -66,7 +66,7 @@ class Network {
         void createFromSubnetworks(std::map<uint64_t, uint64_t> clusterToSubnetwork);
         void mergeClusters(std::vector<Cluster> clusters);
         Network calculateReducedNetwork();
-        std::vector<Network> createSubnetworks();
+        Network createSubnetwork(std::vector<Cluster>::iterator c);
 
         bool runLocalMovingAlgorithm(uint32_t randomSeed);
         bool runLouvainAlgorithm(uint32_t randomSeed);

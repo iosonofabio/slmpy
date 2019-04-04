@@ -588,30 +588,12 @@ bool Network::runSmartLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxItera
     
     // each community -> subnetwork, reset labels and runLocalMoving inside that subnetwork
     // then set the cluster ids as of the double splitting
-    std::vector<Network> subnetworks = createSubnetworks();
     uint64_t nClusters = 0;
+    uint64_t isn = 0;
     std::map<uint64_t, uint64_t> clusterToSubnetwork;
-    for(size_t isn=0; isn != subnetworks.size(); isn++) {
-        Network& subNet = subnetworks[isn];
-        // reset labels
-        subNet.createSingletons();
-
-        // set global degrees
-        // FIXME: it is unclear from the paper whether global degrees
-        // percolate up to the very top or stop at the parent. This
-        // is relevant for subnetworks of reduced networks
-        if(isSubnetwork) {
-            subNet.twiceTotalEdgesGlobal = twiceTotalEdgesGlobal;
-        } else {
-            subNet.twiceTotalEdgesGlobal = twiceTotalEdges;
-        }
-        for(auto n=subNet.nodes.begin(); n!=subNet.nodes.end(); n++) {
-            if(isSubnetwork) {
-                n->second.degreeGlobal = nodes[n->first].degreeGlobal;
-            } else {
-                n->second.degreeGlobal = nodes[n->first].degree;
-            }
-        }
+    for(auto c=clusters.begin(); c != clusters.end(); c++, isn++) {
+        // create subnetwork
+        Network subNet = createSubnetwork(c);
 
         // cluster within subnetwork
         subNet.runLocalMovingAlgorithm(randomSeed);
@@ -625,7 +607,7 @@ bool Network::runSmartLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxItera
         }
         // make a list of which of the final clusters/reduced nodes belongs
         // to which subnetwork for later initialization of the reduced network
-        for(auto c=subNet.clusters.begin(); c != subNet.clusters.end(); c++) {
+        for(auto c1=subNet.clusters.begin(); c != subNet.clusters.end(); c++) {
             clusterToSubnetwork[nClusters++] = isn; 
         }
     }
@@ -659,12 +641,27 @@ void Network::createFromSubnetworks(std::map<uint64_t, uint64_t> clusterToSubnet
     calcDegreesAndTwiceTotalEdges();
 }
 
-std::vector<Network> Network::createSubnetworks() {
-    std::vector<Network> subnetworks;
+Network Network::createSubnetwork(std::vector<Cluster>::iterator c) {
 
-    for(auto c=clusters.begin(); c != clusters.end(); c++) {
-        Network subNet;
-        subNet.isSubnetwork = true;
+    Network subNet;
+    subNet.isSubnetwork = true;
+
+    // put in the nodes (pointers would be better but ok)
+    // FIXME: it is unclear from the paper whether global degrees
+    // percolate up to the very top or stop at the parent. This
+    // is relevant for subnetworks of reduced networks
+    uint64_t cId = 0;
+    for(auto n=c->nodes.begin(); n != c->nodes.end(); n++, cId++) {
+        Node node = nodes[*n];
+        node.degreeGlobal = nodes[*n].degree;
+        node.cluster = cId;
+        // FIXME: do we have to fudge with the neighbors??
+        subNet.nodes[*n] = node;
     }
-    return subnetworks;
+    subNet.twiceTotalEdgesGlobal = twiceTotalEdges;
+    calcDegreesAndTwiceTotalEdges();
+    // maybe skip this?
+    calcClustersFromNodes();
+
+    return subNet;
 }

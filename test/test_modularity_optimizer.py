@@ -123,3 +123,23 @@ def test_call_interface_karate_louvain_fixed():
     print(list(a))
     assert((a == answer).all())
     # Answer: it fixes it
+
+
+def test_call_interface_karate_slm():
+    from slmpy import ModularityOptimzer
+
+    mo = ModularityOptimzer.load_from_edge_tsv_file(
+            'data/karate_club.tsv',
+            )
+    answer = np.loadtxt(
+            'data/karate_club_communities.tsv',
+            dtype=np.uint64,
+            )
+
+    a = mo(algorithm='smart_local_moving')
+    print([int(str(x)[-1]) for x in np.arange(34) + 1])
+    print(list(answer))
+    print(list(a))
+    assert((a == answer).all())
+    # Answer: it fixes it
+
