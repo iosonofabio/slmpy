@@ -33,3 +33,8 @@ else
   exit 1
 fi
 
+echo "Installing dependencies"
+pip install pytest
+pip install pytest-cov
+pip install coveralls
+
