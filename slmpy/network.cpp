@@ -16,13 +16,23 @@ void Network::fromPython(
     py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > clustersIn,
     py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > fixedNodesIn) {
 
-    // Set number of nodes and edges
+    // Set number of nodes
     nNodes = nodesIn.rows();
-    uint64_t nEdges = edgesIn.rows();
+
+    // Fill the fixed nodes
+    for(int i=0; i < fixedNodesIn.rows(); i++) {
+        fixedNodes.insert(fixedNodesIn(i, 0));
+    }
+
+    // Fill the nodes
+    for(int i=0; i < nodesIn.rows(); i++) {
+        Node n(nodesIn(i, 0), clustersIn(i, 0));
+        nodes[n.nodeId] = n;
+    }
 
     // Count the clusters
     std::set<uint64_t> clusterIdSet;
-    for(size_t i=0; i < clustersIn.rows(); i++) {
+    for(int i=0; i < clustersIn.rows(); i++) {
         clusterIdSet.insert(clustersIn(i, 0));
     }
 
@@ -30,28 +40,6 @@ void Network::fromPython(
     for(auto cid = clusterIdSet.begin(); cid != clusterIdSet.end(); cid++) {
         Cluster c(*cid);
         clusters.push_back(c);
-    }
-
-    // Fill the nodes
-    for(uint64_t i=0; i < nNodes; i++) {
-        nodes[n.nodeId] = Node(nodesIn(i, 0), clustersIn(i, 0));
-    }
-
-    // Fill the fixed nodes
-    for(uint64_t i=0; i < fixedNodesIn.rows(); i++) {
-        fixedNotes.insert(fixedNodesIn(i, 0));
-    }
-
-    // Fill the edges (both directions)
-    // NOTE: this assumes that the input edges are unique, not redundant
-    uint64_t tmp;
-    uint64_t tmp2;
-    for(uint64_t edgeId=0; edgeId < nEdges; edgeId++) {
-        tmp = edgesIn(edgeId, 0);
-        tmp2 = edgesIn(edgeId, 1);
-        // Unweighted edges get a weight of 1
-        nodes[tmp].neighbors[tmp2] = 1;
-        nodes[tmp2].neighbors[tmp] = 1;
     }
 
     // Fill the clusters
@@ -63,6 +51,19 @@ void Network::fromPython(
             }
         }
     }
+
+    // Fill the edges (both directions)
+    // NOTE: this assumes that the input edges are unique, not redundant
+    uint64_t tmp;
+    uint64_t tmp2;
+    for(int edgeId=0; edgeId < edgesIn.rows(); edgeId++) {
+        tmp = edgesIn(edgeId, 0);
+        tmp2 = edgesIn(edgeId, 1);
+        // Unweighted edges get a weight of 1
+        nodes[tmp].neighbors[tmp2] = 1;
+        nodes[tmp2].neighbors[tmp] = 1;
+    }
+
 }
 
 
@@ -73,7 +74,6 @@ void Network::toPython(
 
     // rename communities as 0-N, by inverse size
     std::vector<std::pair<int64_t, uint64_t>> clusterIds;
-    size_t i = 0;
     for(auto c=clusters.begin(); c != clusters.end(); c++) {
         // std::sort uses the first element, ascending
         std::pair<int64_t, uint64_t> cl(-(c->nodes.size()), c->clusterId);
@@ -213,6 +213,11 @@ Network Network::calculateReducedNetwork() {
         // weights[i] which is the self weight
         std::vector<double> weights(clusters.size(), 0);
         for(auto nid=c->nodes.begin(); nid != c->nodes.end(); nid++) {
+            // if a cluster contains a fixed node, the whole cluster is fixed
+            // in the reduced network, else it could merge
+            if(fixedNodes.find(*nid) != fixedNodes.end()) {
+                redNet.fixedNodes.insert(i);
+            }
             for(auto nn = nodes[*nid].neighbors.begin(); nn != nodes[*nid].neighbors.end(); nn++) {
                 weights[clusterMap[nodes[nn->first].cluster]] += nn->second;
             }
@@ -231,6 +236,7 @@ Network Network::calculateReducedNetwork() {
 
         redNet.nodes[i] = n;
     }
+
 
     //check the reduced network
     std::cout<<"Reduced:"<<std::endl<<std::flush;

@@ -16,11 +16,12 @@ int local_moving(
     py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 2> > edges,
     py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > nodes,
     py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > communities,
+    py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > fixedNodes,
     uint32_t random_seed,
     uint64_t n_iterations) {
 
     Network net;
-    net.fromPython(edges, nodes, communities);
+    net.fromPython(edges, nodes, communities, fixedNodes);
     for(uint64_t i=0; i<n_iterations; i++)
         net.runLocalMovingAlgorithm(random_seed);
     net.toPython(nodes, communities_out);
@@ -34,10 +35,11 @@ int louvain(
     py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 2> > edges,
     py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > nodes,
     py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > communities,
+    py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > fixedNodes,
     uint32_t random_seed) {
 
     Network net;
-    net.fromPython(edges, nodes, communities);
+    net.fromPython(edges, nodes, communities, fixedNodes);
     net.runLouvainAlgorithm(random_seed);
     net.toPython(nodes, communities_out);
 
@@ -49,11 +51,12 @@ int smart_local_moving(
     py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 2> > edges,
     py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > nodes,
     py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > communities,
+    py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > fixedNodes,
     uint32_t random_seed,
     uint64_t n_iterations) {
 
     Network net;
-    net.fromPython(edges, nodes, communities);
+    net.fromPython(edges, nodes, communities, fixedNodes);
     net.runSmartLocalMovingAlgorithm(random_seed, n_iterations);
     net.toPython(nodes, communities_out);
 

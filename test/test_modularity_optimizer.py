@@ -98,3 +98,28 @@ def test_call_interface_karate_louvain():
     print(list(answer))
     print(list(a))
     assert((a == answer).all())
+
+
+def test_call_interface_karate_louvain_fixed():
+    from slmpy import ModularityOptimzer
+
+    mo = ModularityOptimzer.load_from_edge_tsv_file(
+            'data/karate_club.tsv',
+            )
+    # NOTE: louvain gets 2 nodes wrong, what if we fix some?
+    mo.communities[25] = 23
+    mo.communities[23] = 23
+    for node, com in zip(mo.nodes, mo.communities):
+        print(node+1, com+1)
+    mo.fixed_nodes = np.array([23, 25], np.uint64)
+    answer = np.loadtxt(
+            'data/karate_club_communities.tsv',
+            dtype=np.uint64,
+            )
+
+    a = mo(algorithm='louvain')
+    print([int(str(x)[-1]) for x in np.arange(34) + 1])
+    print(list(answer))
+    print(list(a))
+    assert((a == answer).all())
+    # Answer: it fixes it

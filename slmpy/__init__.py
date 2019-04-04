@@ -6,10 +6,10 @@ from ._slmpy import smart_local_moving, local_moving, louvain
 class ModularityOptimzer:
 
     n_iterations = 1
+    fixed_nodes = np.array([], dtype=np.uint64)
 
     def __init__(self):
         pass
-
 
     @classmethod
     def load_from_edge_list(cls, edges):
@@ -64,6 +64,7 @@ class ModularityOptimzer:
                     self.edges,
                     self.nodes,
                     self.communities,
+                    self.fixed_nodes,
                     random_seed,
                     self.n_iterations,
                     )
@@ -73,6 +74,7 @@ class ModularityOptimzer:
                     self.edges,
                     self.nodes,
                     self.communities,
+                    self.fixed_nodes,
                     random_seed,
                     )
         elif algorithm == 'local_moving':
@@ -81,6 +83,7 @@ class ModularityOptimzer:
                     self.edges,
                     self.nodes,
                     self.communities,
+                    self.fixed_nodes,
                     random_seed,
                     self.n_iterations,
                     )

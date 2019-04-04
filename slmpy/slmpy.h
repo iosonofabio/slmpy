@@ -1,4 +1,5 @@
 //#include <iostream>
+#include <set>
 #include <map>
 #include <cmath>
 
@@ -46,7 +47,8 @@ class Network {
         void fromPython(
             py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 2> > edgesIn,
             py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > nodesIn,
-            py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > clustersIn);
+            py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > clustersIn,
+            py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > fixedNodesIn);
         void toPython(
             py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > nodesIn,
             py::EigenDRef<Eigen::Matrix<uint64_t, -1, 1> > communitiesOut);
