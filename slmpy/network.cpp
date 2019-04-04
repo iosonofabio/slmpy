@@ -16,9 +16,6 @@ void Network::fromPython(
     py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > clustersIn,
     py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > fixedNodesIn) {
 
-    // Set number of nodes
-    nNodes = nodesIn.rows();
-
     // Fill the fixed nodes
     for(int i=0; i < fixedNodesIn.rows(); i++) {
         fixedNodes.insert(fixedNodesIn(i, 0));
@@ -79,7 +76,6 @@ void Network::toPython(
         // std::sort uses the first element, ascending
         std::pair<int64_t, uint64_t> cl(-(c->nodes.size()), c->clusterId);
         clusterIds.push_back(cl);
-        //std::cout << "Cluster: " << c->clusterId << " size: " << c->nodes.size() << std::endl << std::flush;
     }
     std::sort(clusterIds.begin(), clusterIds.end());
     std::map<uint64_t, uint64_t> clusterRename;
@@ -150,15 +146,14 @@ void Network::toPython(
 
 // shuffle order of nodes that get probes by the local moving heuristic
 std::vector<uint64_t> Network::nodesInRadomOrder(uint32_t seed) {
-    std::srand(seed);
-    std::vector<uint64_t> randomOrder(nNodes);
+    std::vector<uint64_t> randomOrder(nodes.size());
 
     size_t i = 0;
     for(auto n=nodes.begin(); n != nodes.end(); n++) {
         randomOrder[i++] = n->first;
     }
-
     std::random_shuffle(randomOrder.begin(), randomOrder.end());
+
     return randomOrder;
 }
 
@@ -191,10 +186,11 @@ void Network::createSingletons() {
 // the next two functions go up and down the reduced network recursion
 Network Network::calculateReducedNetwork() {
 
+#if SLMPY_VERBOSE
     std::cout<<"Reducing network"<<std::endl<<std::flush;
+#endif
 
     Network redNet;
-    redNet.nNodes = clusters.size();
 
     // Make map of clusterId to reduced network ordering
     std::map<uint64_t, uint64_t> clusterMap;
@@ -242,8 +238,8 @@ Network Network::calculateReducedNetwork() {
         redNet.nodes[i] = n;
     }
 
-
-    //check the reduced network
+#if SLMPY_VERBOSE
+    check the reduced network
     std::cout<<"Reduced:"<<std::endl<<std::flush;
     for(auto n=redNet.nodes.begin(); n != redNet.nodes.end(); n++) {
         std::cout << n->first << ", weights: ";
@@ -255,6 +251,7 @@ Network Network::calculateReducedNetwork() {
        std::cout << std::endl << std::flush;
     }
     std::cout << std::endl << std::flush;
+#endif
 
 
     return redNet;
@@ -303,10 +300,12 @@ void Network::mergeClusters(std::vector<Cluster> clustersRed) {
     // regenerate clusters from the nodes
     calcClustersFromNodes();
 
+#if SLMPY_VERBOSE
     std::cout << "Clusters after merging: " << std::endl << std::flush;
     for(auto c=clusters.begin(); c != clusters.end(); c++) {
         std::cout << "Cluster: " << c->clusterId << " size: " << c->nodes.size() << std::endl << std::flush;
     }
+#endif
 }
 
 
@@ -461,13 +460,17 @@ void Network::updateCluster(uint64_t nodeId, uint64_t clusterId) {
 
 bool Network::runLocalMovingAlgorithm(uint32_t randomSeed) {
     bool update = false;
-    if(nNodes == 1)
+    if(nodes.size() == 1)
         return update;
+
+#if SLMPY_VERBOSE
+    std::cout << "is subnetwork: " << isSubnetwork << std::endl << std::flush;
+#endif
 
     std::vector<uint64_t> nodesShuffled = nodesInRadomOrder(randomSeed);
 
     uint64_t numberStableNodes = 0;
-    int i = 0;
+    uint64_t  i = 0;
     uint64_t nodeId;
     uint64_t bestClusterId;
     bool isStable;
@@ -493,10 +496,6 @@ bool Network::runLocalMovingAlgorithm(uint32_t randomSeed) {
 #if SLMPY_VERBOSE
         std::cout << "bestClusterId: " << bestClusterId << std::endl << std::flush;
 #endif
-
-        //FIXME
-        if(nodes.size() < 10)
-            std::cout << "bestCluster: node " << nodeId << ", old cluster " << nodes[nodeId].cluster << ", new cluster " << bestClusterId << std::endl << std::flush;
 
         // If the best cluster was already set, the node is stable
 #if SLMPY_VERBOSE
@@ -533,7 +532,7 @@ bool Network::runLocalMovingAlgorithm(uint32_t randomSeed) {
 
         iteration++;
     
-    } while(numberStableNodes < nNodes);
+    } while(numberStableNodes < nodes.size());
 
     return update;
 }
@@ -542,7 +541,7 @@ bool Network::runLocalMovingAlgorithm(uint32_t randomSeed) {
 bool Network::runLouvainAlgorithm(uint32_t randomSeed) {
     bool update = false;
     bool update2;
-    if(nNodes == 1)
+    if(nodes.size() == 1)
         return update;
 
     update |= runLocalMovingAlgorithm(randomSeed);
@@ -554,7 +553,7 @@ bool Network::runLouvainAlgorithm(uint32_t randomSeed) {
     redNet.createSingletons();
     update2 = redNet.runLouvainAlgorithm(randomSeed);
 
-    //check the reduced network
+#if SLMPY_VERBOSE
     std::cout<<"Reduced after LM:"<<std::endl<<std::flush;
     for(auto n=redNet.nodes.begin(); n != redNet.nodes.end(); n++) {
         std::cout << n->first << ", weights: ";
@@ -567,6 +566,7 @@ bool Network::runLouvainAlgorithm(uint32_t randomSeed) {
     }
     std::cout << "Updated: " << update2 << std::endl << std::flush;
     std::cout << std::endl << std::flush;
+#endif
 
     if(update2) {
         update = true;
@@ -576,9 +576,9 @@ bool Network::runLouvainAlgorithm(uint32_t randomSeed) {
 }
 
 
-bool Network::runSmartLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxIterations) {
+bool Network::runSmartLocalMovingAlgorithm(uint32_t randomSeed) {
     bool update = false;
-    if(nNodes == 1)
+    if(nodes.size() == 1)
         return update;
 
     update |= runLocalMovingAlgorithm(randomSeed);
@@ -592,6 +592,10 @@ bool Network::runSmartLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxItera
     uint64_t isn = 0;
     std::map<uint64_t, uint64_t> clusterToSubnetwork;
     for(auto c=clusters.begin(); c != clusters.end(); c++, isn++) {
+#if SLMPY_VERBOSE
+        std::cout << "subnetwork " << isn+1 <<std::endl << std::flush;
+#endif
+
         // create subnetwork
         Network subNet = createSubnetwork(c);
 
@@ -599,28 +603,44 @@ bool Network::runSmartLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxItera
         subNet.runLocalMovingAlgorithm(randomSeed);
 
         // assign community numbers to all nodes across the parent network
+        std::map<uint64_t, uint64_t> clusterMap;
+        uint64_t i = 0;
+        for(auto c1=subNet.clusters.begin(); c1 != subNet.clusters.end(); c1++, i++) {
+            clusterMap[c1->clusterId] = i;
+        } 
         for(auto n=subNet.nodes.begin(); n!=subNet.nodes.end(); n++) {
             // n->cluster has the clusterId within the subnetwork, go to the
             // global list of nodes and update it with a new clusterId that
             // runs over all subnetworks
-            nodes[n->first].cluster = nClusters + n->second.cluster;
+            nodes[n->first].cluster = nClusters + clusterMap[n->second.cluster];
         }
         // make a list of which of the final clusters/reduced nodes belongs
         // to which subnetwork for later initialization of the reduced network
-        for(auto c1=subNet.clusters.begin(); c != subNet.clusters.end(); c++) {
+        for(auto c1=subNet.clusters.begin(); c1 != subNet.clusters.end(); c1++) {
             clusterToSubnetwork[nClusters++] = isn; 
         }
+
+#if SLMPY_VERBOSE
+        std::cout << "clusterToSubnetwork: ";
+        for(auto c1=clusterToSubnetwork.begin(); c1 != clusterToSubnetwork.end(); c1++) {
+            std::cout << "(" << c1->first << ", " << c1->second << ") ";
+        }
+        std::cout << std::endl << std::flush;
+#endif
+
     }
 
     // recalculate clusters
     calcClustersFromNodes();
 
     Network redNet = calculateReducedNetwork();
+
     // the initial state is not each reduced node for itself, but rather
     // each subnetwork for itself. This is probably for convergence/speed reasons
     redNet.createFromSubnetworks(clusterToSubnetwork);
 
-    update |= redNet.runSmartLocalMovingAlgorithm(randomSeed, maxIterations);
+    update |= redNet.runSmartLocalMovingAlgorithm(randomSeed);
+
     mergeClusters(redNet.clusters);
 
     return update;
@@ -652,16 +672,19 @@ Network Network::createSubnetwork(std::vector<Cluster>::iterator c) {
     // is relevant for subnetworks of reduced networks
     uint64_t cId = 0;
     for(auto n=c->nodes.begin(); n != c->nodes.end(); n++, cId++) {
-        Node node = nodes[*n];
+        Node node(cId);
         node.degreeGlobal = nodes[*n].degree;
-        node.cluster = cId;
-        // FIXME: do we have to fudge with the neighbors??
+        // only keep neighbors within the subnetworks
+        for(auto nei=nodes[*n].neighbors.begin(); nei != nodes[*n].neighbors.end(); nei++) {
+            if(nodes[nei->first].cluster == nodes[*n].cluster) {
+                node.neighbors[nei->first] = nei->second;
+            }
+        }
         subNet.nodes[*n] = node;
+        // start with singletons
+        subNet.clusters.push_back(Cluster(cId, {*n}));
     }
     subNet.twiceTotalEdgesGlobal = twiceTotalEdges;
-    calcDegreesAndTwiceTotalEdges();
-    // maybe skip this?
-    calcClustersFromNodes();
 
     return subNet;
 }

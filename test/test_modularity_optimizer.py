@@ -67,21 +67,6 @@ def test_call_interface_local_heuristic():
     assert((a == a[0]).all())
 
 
-def test_call_interface_slm():
-    from slmpy import ModularityOptimzer
-
-    mo = ModularityOptimzer.load_from_edge_list(
-            [
-             [0, 1],
-             [0, 2],
-             [1, 2],
-            ],
-            )
-    mo.n_iterations = 1
-    a = mo(algorithm='smart_local_moving')
-    assert((a == a[0]).all())
-
-
 def test_call_interface_karate_louvain():
     from slmpy import ModularityOptimzer
 
@@ -143,3 +128,19 @@ def test_call_interface_karate_slm():
     assert((a == answer).all())
     # Answer: it fixes it
 
+
+#def test_call_interface_slm():
+#    from slmpy import ModularityOptimzer
+#
+#    mo = ModularityOptimzer.load_from_edge_list(
+#            [
+#             [0, 1],
+#             [0, 2],
+#             [1, 2],
+#            ],
+#            )
+#    mo.n_iterations = 1
+#    a = mo(algorithm='smart_local_moving')
+#    assert((a == a[0]).all())
+#
+#

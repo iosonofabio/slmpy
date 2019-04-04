@@ -36,7 +36,6 @@ class Cluster {
 
 class Network {
     public:
-        uint64_t nNodes;
         std::map<uint64_t, Node> nodes;
         std::vector<Cluster> clusters;
         std::set<uint64_t> fixedNodes;
@@ -70,6 +69,6 @@ class Network {
 
         bool runLocalMovingAlgorithm(uint32_t randomSeed);
         bool runLouvainAlgorithm(uint32_t randomSeed);
-        bool runSmartLocalMovingAlgorithm(uint32_t randomSeed, int64_t maxIterations = -1);
+        bool runSmartLocalMovingAlgorithm(uint32_t randomSeed);
 
 };

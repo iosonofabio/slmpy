@@ -1,6 +1,7 @@
 #include <iostream>
 #include <map>
 #include <cmath>
+#include <cstdlib>   // std::rand, std::srand
 #include <pybind11/pybind11.h>
 #include <pybind11/eigen.h>
 #include <slmpy.h>
@@ -20,6 +21,8 @@ int local_moving(
     uint32_t random_seed,
     uint64_t n_iterations) {
 
+    std::srand(random_seed);
+
     Network net;
     net.fromPython(edges, nodes, communities, fixedNodes);
     for(uint64_t i=0; i<n_iterations; i++)
@@ -38,6 +41,8 @@ int louvain(
     py::EigenDRef<const Eigen::Matrix<uint64_t, -1, 1> > fixedNodes,
     uint32_t random_seed) {
 
+    std::srand(random_seed);
+
     Network net;
     net.fromPython(edges, nodes, communities, fixedNodes);
     net.runLouvainAlgorithm(random_seed);
@@ -55,9 +60,12 @@ int smart_local_moving(
     uint32_t random_seed,
     uint64_t n_iterations) {
 
+    std::srand(random_seed);
+
     Network net;
     net.fromPython(edges, nodes, communities, fixedNodes);
-    net.runSmartLocalMovingAlgorithm(random_seed, n_iterations);
+    for(uint64_t i=0; i != n_iterations; i++)
+        net.runSmartLocalMovingAlgorithm(random_seed);
     net.toPython(nodes, communities_out);
 
     return 0;
