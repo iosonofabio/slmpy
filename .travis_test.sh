@@ -2,22 +2,18 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-if [ "$TRAVIS_OS_NAME" == 'osx' ]; then
-  export PATH="$HOME/miniconda/bin:$PATH"
-  source $HOME/miniconda/bin/activate
-  PYTHON="$HOME/miniconda/bin/python$PYTHON_VERSION"
-  PYTEST="$HOME/miniconda/bin/pytest"
-else
-  PYTHON=${PYTHON:-python}
-  #PYTEST=${PYTEST:-"pytest -rxXs --cov=slmpy/"}
-  PYTEST=${PYTEST:-"py.test -rxXs"}
-fi
-
-echo "python: ${PYTHON}"
-
-echo 'Running pytests...'
 # LOCAL TESTING:
 # PYTHONPATH=$(pwd):PYTHONPATH SINGLET_CONFIG_FILENAME='example_data/config_example.yml' pytest -rxXs test
 
-#${PYTEST} "test"
-PYTHONPATH=$(pwd):PYTHONPATH pytest -rxXs test
+echo 'Running pytests...'
+
+if [ "$TRAVIS_OS_NAME" == 'osx' ]; then
+  export PATH="$HOME/miniconda/bin:$PATH"
+  source $HOME/miniconda/bin/activate
+  PYTHONPATH=$(pwd):PYTHONPATH $HOME/miniconda/bin/pytest -rxXs
+
+else
+  PYTHONPATH=$(pwd):PYTHONPATH pytest -rxXs --cov=slmpy/test
+fi
+
+echo "Tests done!"
