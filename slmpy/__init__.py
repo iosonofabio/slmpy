@@ -76,6 +76,7 @@ class ModularityOptimzer:
                     self.communities,
                     self.fixed_nodes,
                     random_seed,
+                    self.n_iterations,
                     )
         elif algorithm == 'local_moving':
             local_moving(

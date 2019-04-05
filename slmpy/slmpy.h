@@ -57,7 +57,7 @@ class Network {
         void calcDegreesAndTwiceTotalEdges();
         void calcClustersFromNodes();
         //double calcModularity();
-        std::vector<uint64_t> nodesInRadomOrder(uint32_t seed);
+        std::vector<uint64_t> nodesInRadomOrder();
         uint64_t findBestCluster(uint64_t nodeId);
         void updateCluster(uint64_t nodeId, uint64_t clusterId);
 
@@ -67,8 +67,8 @@ class Network {
         Network calculateReducedNetwork();
         Network createSubnetwork(std::vector<Cluster>::iterator c);
 
-        bool runLocalMovingAlgorithm(uint32_t randomSeed);
-        bool runLouvainAlgorithm(uint32_t randomSeed);
-        bool runSmartLocalMovingAlgorithm(uint32_t randomSeed);
+        bool runLocalMovingAlgorithm();
+        bool runLouvainAlgorithm();
+        bool runSmartLocalMovingAlgorithm();
 
 };

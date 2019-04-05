@@ -120,6 +120,7 @@ def test_call_interface_karate_slm():
             'data/karate_club_communities.tsv',
             dtype=np.uint64,
             )
+    mo.n_iterations = 1
 
     a = mo(algorithm='smart_local_moving')
     print([int(str(x)[-1]) for x in np.arange(34) + 1])
@@ -138,7 +139,6 @@ def test_call_interface_karate_slm_fixed():
             'data/karate_club_communities.tsv',
             dtype=np.uint64,
             )
-
     # try fixing nodes in SLM
     mo.fixed_nodes = np.array([1, 26], np.uint64)
     a = mo(algorithm='smart_local_moving')
@@ -146,7 +146,6 @@ def test_call_interface_karate_slm_fixed():
     print(list(answer))
     print(list(a))
     assert((a == answer).all())
-    # Answer: it fixes it
 
 
 #def test_call_interface_slm():

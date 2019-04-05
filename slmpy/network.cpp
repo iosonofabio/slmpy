@@ -145,7 +145,7 @@ void Network::toPython(
 
 
 // shuffle order of nodes that get probes by the local moving heuristic
-std::vector<uint64_t> Network::nodesInRadomOrder(uint32_t seed) {
+std::vector<uint64_t> Network::nodesInRadomOrder() {
     std::vector<uint64_t> randomOrder(nodes.size());
 
     size_t i = 0;
@@ -458,7 +458,7 @@ void Network::updateCluster(uint64_t nodeId, uint64_t clusterId) {
 
 }
 
-bool Network::runLocalMovingAlgorithm(uint32_t randomSeed) {
+bool Network::runLocalMovingAlgorithm() {
     bool update = false;
     if(nodes.size() == 1)
         return update;
@@ -467,7 +467,7 @@ bool Network::runLocalMovingAlgorithm(uint32_t randomSeed) {
     std::cout << "is subnetwork: " << isSubnetwork << std::endl << std::flush;
 #endif
 
-    std::vector<uint64_t> nodesShuffled = nodesInRadomOrder(randomSeed);
+    std::vector<uint64_t> nodesShuffled = nodesInRadomOrder();
 
     uint64_t numberStableNodes = 0;
     uint64_t  i = 0;
@@ -538,20 +538,20 @@ bool Network::runLocalMovingAlgorithm(uint32_t randomSeed) {
 }
 
 
-bool Network::runLouvainAlgorithm(uint32_t randomSeed) {
+bool Network::runLouvainAlgorithm() {
     bool update = false;
     bool update2;
     if(nodes.size() == 1)
         return update;
 
-    update |= runLocalMovingAlgorithm(randomSeed);
+    update |= runLocalMovingAlgorithm();
 
     if(clusters.size() == nodes.size())
         return update;
 
     Network redNet = calculateReducedNetwork();
     redNet.createSingletons();
-    update2 = redNet.runLouvainAlgorithm(randomSeed);
+    update2 = redNet.runLouvainAlgorithm();
 
 #if SLMPY_VERBOSE
     std::cout<<"Reduced after LM:"<<std::endl<<std::flush;
@@ -576,12 +576,12 @@ bool Network::runLouvainAlgorithm(uint32_t randomSeed) {
 }
 
 
-bool Network::runSmartLocalMovingAlgorithm(uint32_t randomSeed) {
+bool Network::runSmartLocalMovingAlgorithm() {
     bool update = false;
     if(nodes.size() == 1)
         return update;
 
-    update |= runLocalMovingAlgorithm(randomSeed);
+    update |= runLocalMovingAlgorithm();
 
     if(clusters.size() == nodes.size())
         return update;
@@ -600,7 +600,7 @@ bool Network::runSmartLocalMovingAlgorithm(uint32_t randomSeed) {
         Network subNet = createSubnetwork(c);
 
         // cluster within subnetwork
-        subNet.runLocalMovingAlgorithm(randomSeed);
+        subNet.runLocalMovingAlgorithm();
 
         // assign community numbers to all nodes across the parent network
         std::map<uint64_t, uint64_t> clusterMap;
@@ -639,7 +639,7 @@ bool Network::runSmartLocalMovingAlgorithm(uint32_t randomSeed) {
     // each subnetwork for itself. This is probably for convergence/speed reasons
     redNet.createFromSubnetworks(clusterToSubnetwork);
 
-    update |= redNet.runSmartLocalMovingAlgorithm(randomSeed);
+    update |= redNet.runSmartLocalMovingAlgorithm();
 
     mergeClusters(redNet.clusters);
 
