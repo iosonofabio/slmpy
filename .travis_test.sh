@@ -19,4 +19,5 @@ echo 'Running pytests...'
 # LOCAL TESTING:
 # PYTHONPATH=$(pwd):PYTHONPATH SINGLET_CONFIG_FILENAME='example_data/config_example.yml' pytest -rxXs test
 
-${PYTEST} "test"
+#${PYTEST} "test"
+PYTHONPATH=$(pwd):PYTHONPATH pytest -rxXs test
