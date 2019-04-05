@@ -78,6 +78,26 @@ def test_call_interface_karate_louvain():
             'data/karate_club_communities_louvain.tsv',
             dtype=np.uint64,
             )
+    mo.n_iterations = 1
+
+    a = mo(algorithm='louvain')
+    print(list(answer))
+    print(list(a))
+    assert((a == answer).all())
+
+
+# turns out iterating louvain works
+def test_call_interface_karate_louvain_iterative():
+    from slmpy import ModularityOptimzer
+
+    mo = ModularityOptimzer.load_from_edge_tsv_file(
+            'data/karate_club.tsv',
+            )
+    answer = np.loadtxt(
+            'data/karate_club_communities.tsv',
+            dtype=np.uint64,
+            )
+    mo.n_iterations = 3
 
     a = mo(algorithm='louvain')
     print(list(answer))
@@ -127,6 +147,26 @@ def test_call_interface_karate_slm():
     print(list(answer))
     print(list(a))
     assert((a == answer).all())
+
+
+# TODO: this does not work yet
+#def test_call_interface_karate_slm_iterative():
+#    from slmpy import ModularityOptimzer
+#
+#    mo = ModularityOptimzer.load_from_edge_tsv_file(
+#            'data/karate_club.tsv',
+#            )
+#    answer = np.loadtxt(
+#            'data/karate_club_communities.tsv',
+#            dtype=np.uint64,
+#            )
+#    mo.n_iterations = 2
+#
+#    a = mo(algorithm='smart_local_moving')
+#    print([int(str(x)[-1]) for x in np.arange(34) + 1])
+#    print(list(answer))
+#    print(list(a))
+#    assert((a == answer).all())
 
 
 def test_call_interface_karate_slm_fixed():
