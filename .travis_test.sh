@@ -10,7 +10,7 @@ if [ "$TRAVIS_OS_NAME" == 'osx' ]; then
 else
   PYTHON=${PYTHON:-python}
   #PYTEST=${PYTEST:-"pytest -rxXs --cov=slmpy/"}
-  PYTEST=${PYTEST:-"python -m pytest -rxXs"}
+  PYTEST=${PYTEST:-"py.test -rxXs"}
 fi
 
 echo "python: ${PYTHON}"
