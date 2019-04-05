@@ -10,10 +10,12 @@ echo 'Running pytests...'
 if [ "$TRAVIS_OS_NAME" == 'osx' ]; then
   export PATH="$HOME/miniconda/bin:$PATH"
   source $HOME/miniconda/bin/activate
-  PYTHONPATH=$(pwd):PYTHONPATH $HOME/miniconda/bin/pytest -rxXs
+  #PYTHONPATH=$(pwd):PYTHONPATH $HOME/miniconda/bin/pytest -rxXs
+  $HOME/miniconda/bin/pytest -rxXs
 
 else
-  PYTHONPATH=$(pwd):PYTHONPATH pytest -rxXs --cov=slmpy/test
+  #PYTHONPATH=$(pwd):PYTHONPATH pytest -rxXs --cov=slmpy/test
+  pytest -rxXs --cov=slmpy/test
 fi
 
 echo "Tests done!"
