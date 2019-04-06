@@ -5,11 +5,35 @@ from ._slmpy import smart_local_moving, local_moving, louvain
 
 class ModularityOptimzer:
 
-    n_iterations = 1
-    _fixed_nodes = np.array([], dtype=np.uint64)
+    def __init__(
+            self,
+            edges,
+            nodes=None,
+            communities=None,
+            fixed_nodes=tuple(),
+            n_iterations=1,
+            ):
+        '''ModularityOptimizer
 
-    def __init__(self):
-        pass
+        Args:
+            edges (list of pairs): edges in the graph
+            nodes (list): nodes in the graph. If it is None, they are the
+            unique list of nodes found in the edges.
+            communities (list): initial community assignment. If it is None,
+            each node is a singleton.
+            fixed_nodes (list): list of nodes to fix throughout the clustering
+            algorithm.
+        '''
+        if nodes is None:
+            nodes = np.unique(edges)
+        if communities is None:
+            communities = np.arange(len(nodes), dtype=np.uint64)
+
+        self.edges = edges
+        self.nodes = nodes
+        self.communities = communities
+        self.fixed_nodes = fixed_nodes
+        self.n_iterations = n_iterations
 
     @property
     def nodes(self):
@@ -18,6 +42,14 @@ class ModularityOptimzer:
     @nodes.setter
     def nodes(self, values):
         self._nodes = np.asarray(values, dtype=np.uint64)
+
+    @property
+    def edges(self):
+        return self._edges
+
+    @edges.setter
+    def edges(self, values):
+        self._edges = np.asarray(values, dtype=np.uint64)
 
     @property
     def communities(self):
@@ -36,21 +68,6 @@ class ModularityOptimzer:
         self._fixed_nodes = np.asarray(values, dtype=np.uint64)
 
     @classmethod
-    def load_from_edge_list(cls, edges):
-        '''Load a ModularityOptimzer from a list of edges
-
-        Args:
-            edges (list of pairs or Nx2 np.ndarray): the list of edges
-
-        Returns:
-            ModularityOptimzer with those edges.
-        '''
-        self = cls()
-        self.edges = np.asarray(edges, dtype=np.uint64)
-        self._finish_initialization()
-        return self
-
-    @classmethod
     def load_from_edge_tsv_file(cls, filename):
         '''Load a ModularityOptimzer from a TSV filename with the edges
 
@@ -62,23 +79,22 @@ class ModularityOptimzer:
         Returns:
             ModularityOptimzer with edges as in the file.
         '''
-        self = cls()
-        self.edges = np.loadtxt(filename, delimiter='\t', dtype=np.uint64)
-        self._finish_initialization()
-        return self
-
-    def _finish_initialization(self):
-        if self.edges.shape[1] != 2:
-            raise ValueError('Edges must be pairs')
-
-        self.nodes = np.unique(self.edges)
-
-        # The default is to start with each node in its own community
-        # NOTE: the communities are numbered 0 to N-1 by default
-        self.communities = np.arange(len(self.nodes), dtype=np.uint64)
+        edges = np.loadtxt(filename, delimiter='\t', dtype=np.uint64)
+        return cls(edges=edges)
 
     def __call__(self, algorithm='smart_local_moving', random_seed=0):
-        '''Run the optimizer'''
+        '''Run the optimizer
+
+        Args:
+            algorithm (str): one of "local_moving", "lovain", and
+            "smart_local_moving".
+
+        Returns:
+            one dimensional numpy.ndarray: the communities the nodes belong to.
+
+        NOTE: if the nodes were not explicitely set, they can be recovered via
+        the nodes property.
+        '''
 
         communities_out = self.communities.copy()
 
