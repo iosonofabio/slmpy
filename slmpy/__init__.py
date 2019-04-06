@@ -6,10 +6,34 @@ from ._slmpy import smart_local_moving, local_moving, louvain
 class ModularityOptimzer:
 
     n_iterations = 1
-    fixed_nodes = np.array([], dtype=np.uint64)
+    _fixed_nodes = np.array([], dtype=np.uint64)
 
     def __init__(self):
         pass
+
+    @property
+    def nodes(self):
+        return self._nodes
+
+    @nodes.setter
+    def nodes(self, values):
+        self._nodes = np.asarray(values, dtype=np.uint64)
+
+    @property
+    def communities(self):
+        return self._communities
+
+    @communities.setter
+    def communities(self, values):
+        self._communities = np.asarray(values, dtype=np.uint64)
+
+    @property
+    def fixed_nodes(self):
+        return self._fixed_nodes
+
+    @fixed_nodes.setter
+    def fixed_nodes(self, values):
+        self._fixed_nodes = np.asarray(values, dtype=np.uint64)
 
     @classmethod
     def load_from_edge_list(cls, edges):

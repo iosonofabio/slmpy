@@ -4,6 +4,9 @@
 #include <cmath>
 #include <algorithm> // std::random_shuffle
 #include <cstdlib>   // std::rand, std::srand
+#include <random>       // std::default_random_engine
+#include <chrono>       // std::chrono::system_clock
+
 
 #include <pybind11/pybind11.h>
 #include <pybind11/eigen.h>
@@ -152,6 +155,12 @@ std::vector<uint64_t> Network::nodesInRadomOrder() {
     for(auto n=nodes.begin(); n != nodes.end(); n++) {
         randomOrder[i++] = n->first;
     }
+
+    //// FIXME: we seem to have issues here!!
+    //if(seed == 0) {
+    //    seed = std::chrono::system_clock::now().time_since_epoch().count();
+    //}
+    //std::shuffle(randomOrder.begin(), randomOrder.end(), std::default_random_engine(seed));
     std::random_shuffle(randomOrder.begin(), randomOrder.end());
 
     return randomOrder;
@@ -340,14 +349,20 @@ uint64_t Network::findBestCluster(uint64_t nodeId) {
 
     // Calculate the cost of leaving your cluster once for all
     double modLeaving = 0;
-    // lost edges (you lose the self-edge)
+    // lost edges (excluding the self-edge)
     for(auto nei=node.neighbors.begin(); nei != node.neighbors.end(); nei++) {
-        if (nodes[nei->first].cluster == origClusterId) {
+        if(nei->first == nodeId) {
+            continue;
+        }
+        if(nodes[nei->first].cluster == origClusterId) {
             modLeaving -= nei->second;         
         }
     }
-    // baseline degrees
+    // baseline degrees, excluding the node itself
     for(auto ni2=origCluster->nodes.begin(); ni2 != origCluster->nodes.end(); ni2++) {
+        if((*ni2) == nodeId) {
+            continue;
+        }
         // subnetworks use global degrees
         if(isSubnetwork) {
             modLeaving += node.degreeGlobal * nodes[*ni2].degreeGlobal / twiceTotalEdgesGlobal;
@@ -359,6 +374,7 @@ uint64_t Network::findBestCluster(uint64_t nodeId) {
     for(auto c=clusters.begin(); c != clusters.end(); c++) {
         if(std::find(neighboringClusters.begin(), neighboringClusters.end(), c->clusterId) == neighboringClusters.end())
             continue;
+        // skip the original cluster, it's done after the for loop
         if(c->clusterId == origClusterId)
             continue;
 
@@ -370,14 +386,15 @@ uint64_t Network::findBestCluster(uint64_t nodeId) {
         // vice versa with the squared sums of degrees
         // so there are 4 terms in this evaluation
 
-        // Check additional edges into this cluster
-        // the self-edge comes back
+        // Check additional edges into this cluster, excluding self edge
+        // we don't need to do anything about the self edge, since it's a different cluster
         for(auto nei=node.neighbors.begin(); nei != node.neighbors.end(); nei++) {
-            if((nodes[nei->first].cluster == c->clusterId) || (nei->first == nodeId)){
+            if(nodes[nei->first].cluster == c->clusterId){
                 mod += nei->second;         
             }
         }
         // Subtract k_i sum_j k_j / (2m)^2 from the new cluster
+        // no need to worry about self weight, it was not added to start with
         for(auto ni2=c->nodes.begin(); ni2 != c->nodes.end(); ni2++) {
             // subnetworks use global weights
             if(isSubnetwork) {
@@ -386,14 +403,30 @@ uint64_t Network::findBestCluster(uint64_t nodeId) {
                 mod -= node.degree * nodes[*ni2].degree / twiceTotalEdges;
             }
         }
-        // Subtract your own weight, since you belong to the new cluster now
-        mod -= node.degree * node.degree / twiceTotalEdges;
 
         if(mod > modMax) {
             modMax = mod;
             clusterIdMax = c->clusterId;
         }
     }
+    
+    // finally, try to make a new singleton cluster with this node
+    // no edges except self-edge, but that was not added to start with
+    // self weight comes back but was not added to start with 
+    // conclusion: mod = modLeaving
+    if(modLeaving > modMax) {
+        // figure the first free clusterId
+        // this is a form of recycling
+        std::set<uint64_t> clusterIds;
+        for(auto c=clusters.begin(); c != clusters.end(); c++) {
+            clusterIds.insert(c->clusterId);
+        }
+        clusterIdMax = 0;
+        while(clusterIds.find(clusterIdMax) != clusterIds.end()) {
+            clusterIdMax++;
+        }
+    }
+
     return clusterIdMax;
 }
 
@@ -475,6 +508,7 @@ bool Network::runLocalMovingAlgorithm() {
     uint64_t bestClusterId;
     bool isStable;
     int64_t iteration = 0;
+    int64_t maxIteration = -1;
     do {
 #if SLMPY_VERBOSE
         std::cout << "runLocalMovingAlgorithm, iteration " << (iteration + 1) << std::endl << std::flush;
@@ -531,6 +565,8 @@ bool Network::runLocalMovingAlgorithm() {
 #endif
 
         iteration++;
+        if(iteration == maxIteration)
+            break;
     
     } while(numberStableNodes < nodes.size());
 

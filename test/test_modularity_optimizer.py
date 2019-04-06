@@ -180,7 +180,9 @@ def test_call_interface_karate_slm_fixed():
             dtype=np.uint64,
             )
     # try fixing nodes in SLM
-    mo.fixed_nodes = np.array([1, 26], np.uint64)
+    # FIXME
+    mo.fixed_nodes = np.array([0, 6, 33], np.uint64)
+    mo.n_iterations = 5
     a = mo(algorithm='smart_local_moving')
     print([int(str(x)[-1]) for x in np.arange(34) + 1])
     print(list(answer))

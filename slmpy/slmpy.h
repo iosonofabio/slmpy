@@ -71,4 +71,6 @@ class Network {
         bool runLouvainAlgorithm();
         bool runSmartLocalMovingAlgorithm();
 
+        unsigned seed = 0;
+
 };
