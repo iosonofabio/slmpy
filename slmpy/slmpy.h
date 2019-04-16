@@ -2,6 +2,7 @@
 #include <set>
 #include <map>
 #include <cmath>
+#include <random>       // std::default_random_engine
 
 #include <pybind11/pybind11.h>
 #include <pybind11/eigen.h>
@@ -71,6 +72,5 @@ class Network {
         bool runLouvainAlgorithm();
         bool runSmartLocalMovingAlgorithm();
 
-        unsigned seed = 0;
-
+        std::mt19937 urng;
 };

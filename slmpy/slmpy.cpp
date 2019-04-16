@@ -21,9 +21,10 @@ int local_moving(
     uint32_t random_seed,
     uint64_t n_iterations) {
 
-    std::srand(random_seed);
-
     Network net;
+
+    net.urng = std::mt19937(random_seed);
+
     net.fromPython(edges, nodes, communities, fixedNodes);
     for(uint64_t i=0; i<n_iterations; i++)
         net.runLocalMovingAlgorithm();
@@ -42,9 +43,10 @@ int louvain(
     uint32_t random_seed,
     uint64_t n_iterations) {
 
-    std::srand(random_seed);
-
     Network net;
+
+    net.urng = std::mt19937(random_seed);
+
     net.fromPython(edges, nodes, communities, fixedNodes);
     for(uint64_t i=0; i<n_iterations; i++)
         net.runLouvainAlgorithm();
@@ -62,9 +64,10 @@ int smart_local_moving(
     uint32_t random_seed,
     uint64_t n_iterations) {
 
-    std::srand(random_seed);
-
     Network net;
+
+    net.urng = std::mt19937(random_seed);
+
     net.fromPython(edges, nodes, communities, fixedNodes);
     for(uint64_t i=0; i != n_iterations; i++)
         net.runSmartLocalMovingAlgorithm();

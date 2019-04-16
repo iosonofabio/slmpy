@@ -92,61 +92,6 @@ void Network::toPython(
 }
 
 
-//// Calculate the modularity
-////
-//// Q = 1 / 2m * sum_ij [ A_ij - k_i k_j / 2m ] delta(c_i, c_j)
-////
-//// where:
-////  m = # edges
-////  A_ij = 1 is ij have an edge, else 0
-////  k_i = degree of node i
-////
-////  In practice, only terms within each community contribute, so we sum over communities instead
-////
-////  Q = 1 / 2m * sum_c [ sum_ij [ A_ij - k_i k_j / 2m ] ]
-////
-////  where ij are now only within the community
-////
-////  sum_ij A_ij is twice the numer of edges within the community
-////  sum_ij k_i k_j / 2m = 1 / 2m * (sum_i k_i) (sum_j k_j)
-////  sum_i k_i is the total summed degree of the community (including edges that go out of it)
-////  Bottomline is we should calculate the following useful quantities:
-////   the number of edges within the community
-////   the summed degree of the community
-//double Network::calcModularity() {
-//    double mod = 0;
-//
-//    calcDegreesAndTwiceTotalEdges(); 
-//
-//    for(auto c=clusters.begin(); c != clusters.end(); c++) {
-//        // Calculate twice the number of edges within the community
-//        for(auto n=c->nodes.begin(); n != c->nodes.end(); n++) {
-//            Node& node = nodes[*n];
-//            for(auto neiId=node.neighbors.begin(); neiId != node.neighbors.end(); neiId++) {
-//                for(auto n2=c->nodes.begin(); n2 != c->nodes.end(); n2++) {
-//                    if((*n2) == (neiId->first)) {
-//                        mod += 1;
-//                        break;
-//                    }
-//                }
-//            }
-//        }
-//
-//        // Subtract the summed degrees
-//        double sumDeg = 0;
-//        for(auto n=c->nodes.begin(); n != c->nodes.end(); n++) {
-//                sumDeg += nodes[*n].degree;
-//        }
-//        mod -= sumDeg * sumDeg / twiceTotalEdges;
-//    }
-//
-//    // NOTE: this is useless for the optimization, but oh so cheap
-//    mod /= twiceTotalEdges;
-//
-//    return mod;
-//}
-
-
 // shuffle order of nodes that get probes by the local moving heuristic
 std::vector<uint64_t> Network::nodesInRadomOrder() {
     std::vector<uint64_t> randomOrder(nodes.size());
@@ -156,12 +101,9 @@ std::vector<uint64_t> Network::nodesInRadomOrder() {
         randomOrder[i++] = n->first;
     }
 
-    //// FIXME: we seem to have issues here!!
-    //if(seed == 0) {
-    //    seed = std::chrono::system_clock::now().time_since_epoch().count();
-    //}
-    //std::shuffle(randomOrder.begin(), randomOrder.end(), std::default_random_engine(seed));
-    std::random_shuffle(randomOrder.begin(), randomOrder.end());
+    // FIXME: we seem to have issues here!!
+    std::shuffle(randomOrder.begin(), randomOrder.end(), urng);
+    //std::random_shuffle(randomOrder.begin(), randomOrder.end());
 
     return randomOrder;
 }
