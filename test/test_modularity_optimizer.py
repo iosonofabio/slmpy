@@ -60,7 +60,7 @@ def test_call_interface_local_heuristic():
     assert((a == a[0]).all())
 
 
-def test_double_diamond():
+def test_double_diamond_louvain():
     from slmpy import ModularityOptimzer
 
     mo = ModularityOptimzer(
@@ -79,6 +79,64 @@ def test_double_diamond():
             )
     mo.n_iterations = 1
     a = mo(algorithm='louvain')
+
+    answer = [0, 0, 0, 0, 1, 1, 1]
+
+    print([int(str(x)[-1]) for x in np.arange(34) + 1])
+    print(list(answer))
+    print(list(a))
+    assert((a == answer).all())
+
+
+def test_double_diamond_louvain_fixed():
+    from slmpy import ModularityOptimzer
+
+    mo = ModularityOptimzer(
+            [
+             [0, 1],
+             [0, 2],
+             [0, 3],
+             [1, 2],
+             [1, 3],
+             [2, 3],
+             [3, 4],
+             [4, 5],
+             [4, 6],
+             [5, 6],
+            ],
+            )
+    mo.n_iterations = 1
+    mo.fixed_nodes = [0, 4]
+    a = mo(algorithm='louvain')
+
+    answer = [0, 0, 0, 0, 1, 1, 1]
+
+    print([int(str(x)[-1]) for x in np.arange(34) + 1])
+    print(list(answer))
+    print(list(a))
+    assert((a == answer).all())
+
+
+def test_double_diamond_slm_fixed():
+    from slmpy import ModularityOptimzer
+
+    mo = ModularityOptimzer(
+            [
+             [0, 1],
+             [0, 2],
+             [0, 3],
+             [1, 2],
+             [1, 3],
+             [2, 3],
+             [3, 4],
+             [4, 5],
+             [4, 6],
+             [5, 6],
+            ],
+            )
+    mo.n_iterations = 1
+    mo.fixed_nodes = [0, 4]
+    a = mo(algorithm='smart_local_moving')
 
     answer = [0, 0, 0, 0, 1, 1, 1]
 
