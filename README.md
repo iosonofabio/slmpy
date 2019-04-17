@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.org/iosonofabio/slmpy.svg?branch=master)](https://travis-ci.org/iosonofabio/slmpy)
+[![PyPI version](https://badge.fury.io/py/slmpy.svg)](https://badge.fury.io/py/slmpy)
 
 # slmpy
 Smart Local Moving community detection algorithm in Python and C++11/14, with fixed points.
