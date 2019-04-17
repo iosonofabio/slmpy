@@ -53,15 +53,21 @@ jobs:
      os: linux
      dist: xenial
      sudo: required
-     if: tag =~ ^prerelease_
+     if: tag =~ /^release_([0-9.]*)_RC([0-9]+)$/
      env: PYPI=testpypi
-     script: ./.travis_deploy.sh $PYPI
+     script: 
+      - ./.travis_before_install.sh
+      - ./.travis_install.sh
+      - ./.travis_deploy.sh $PYPI
 
    - stage: deploy
      python: 3.7
      os: linux
      dist: xenial
      sudo: required
-     if: tag =~ ^release_
+     if: tag =~ /^release_([0-9.]*)$/
      env: PYPI=pypi
-     script: ./.travis_deploy.sh $PYPI
+     script:
+      - ./.travis_before_install.sh
+      - ./.travis_install.sh
+      - ./.travis_deploy.sh $PYPI
