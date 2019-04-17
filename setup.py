@@ -137,23 +137,28 @@ version on https://github.com/mneedham/slm.
 
 .. code-block:: python
 
-    import numpy as np
-    import slmpy
+    from slmpy import ModularityOptimzer
 
-    # Load example data
-    edges = np.loadtxt(
-            'data/karate_club.tsv',
-            dtype=np.uint64)
+    edges = [
+             [0, 1],
+             [0, 2],
+             [0, 3],
+             [1, 2],
+             [1, 3],
+             [2, 3],
+             [3, 4],
+             [4, 5],
+             [4, 6],
+             [5, 6],
+             [7, 8],
+            ]
 
-    # Instantiate class
-    c = slmpy.SmartLocalMoving(
-            data=data,
+    mo = ModularityOptimzer(edges)
+    mo.fixed_nodes = [0, 4]  # This fixes nodes 0 and 4 to be in different communities
+    communities = mo(algorithm='smart_local_moving')
 
-    # Call subroutine
-    clusters = c()
-
-    # Check result
-    assert (clusters == [[2], [3], [0], [1]]).all()
+    # Check answer
+    assert((communities == [0, 0, 0, 0, 1, 1, 1]).all())
 
       """,
       license='MIT',

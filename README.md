@@ -26,10 +26,10 @@ More docs will follow, for now here's an example:
     mo = ModularityOptimzer(edges)
     mo.n_iterations = 1
     mo.fixed_nodes = [0, 4]  # This fixes nodes 0 and 4 to be in different communities
-    a = mo(algorithm='smart_local_moving')
+    communities = mo(algorithm='smart_local_moving')
 
     # Check answer
-    assert((a == [0, 0, 0, 0, 1, 1, 1]).all())
+    assert((communities == [0, 0, 0, 0, 1, 1, 1]).all())
 ```
 
 ## References
