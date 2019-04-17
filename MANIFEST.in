@@ -1,0 +1,7 @@
+include VERSION
+include setup.py
+include README.md
+include slmpy/__init__.py
+include slmpy/slmpy.cpp
+include slmpy/slmpy.h
+include slmpy/network.cpp
