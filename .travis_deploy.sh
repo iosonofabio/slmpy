@@ -3,6 +3,7 @@ case $1 in
  testpypi) 
   export PYPI=https://test.pypi.org/legacy/
   export PYPY_IDX=https://test.pypi.org/simple/
+  export TWINE_PASSWORD=$TWINE_PASSWORD_TESTPYPI
   ;;
  pypi) 
   export PYPI=https://upload.pypi.org/legacy/
